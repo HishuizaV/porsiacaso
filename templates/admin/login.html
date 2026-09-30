@@ -1,0 +1,13 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Ingresar{% endblock %}
+{% block content %}
+<div class="login-box">
+    <h1>Ingresar al panel</h1>
+    <form method="post">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <label>Correo <input type="email" name="email" required autofocus></label>
+        <label>Contraseña <input type="password" name="password" required></label>
+        <button class="btn-adm">Entrar</button>
+    </form>
+</div>
+{% endblock %}

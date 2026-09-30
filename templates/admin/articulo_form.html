@@ -1,0 +1,103 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}{{ 'Editar' if a else 'Nuevo' }} artículo{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css">
+{% endblock %}
+
+{% block content %}
+<h1>{{ 'Editar artículo' if a else 'Nuevo artículo' }}</h1>
+
+<form method="post" enctype="multipart/form-data" id="form" class="form-art">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+
+    <label>Título
+        <input name="titulo" value="{{ v.titulo }}" maxlength="200" required>
+    </label>
+
+    <div class="fila">
+        <label>Categoría
+            <select name="categoria_id" required>
+                <option value="">Elige…</option>
+                {% for c in categorias %}
+                <option value="{{ c.id }}" {{ 'selected' if v.categoria_id==c.id }}>{{ c.icono }} {{ c.nombre }}
+                </option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>Estado
+            <select name="estado">
+                <option value="borrador" {{ 'selected' if v.estado=='borrador' }}>Borrador (no se ve en la web)</option>
+                <option value="publicado" {{ 'selected' if v.estado=='publicado' }}>Publicado</option>
+            </select>
+        </label>
+    </div>
+
+    <label>Resumen (se muestra en las tarjetas y en Google)
+        <textarea name="resumen" rows="2" maxlength="400">{{ v.resumen }}</textarea>
+    </label>
+
+    <label>Imagen principal
+        {% if a and a.imagen %}
+        <img class="mini" src="{{ url_for('static', filename='uploads/' + a.imagen) }}" alt="">
+        {% endif %}
+        <input type="file" name="imagen" accept="image/*">
+    </label>
+
+    <div class="fila">
+        <label>Descripción de la imagen (accesibilidad y Google)
+            <input name="imagen_alt" value="{{ v.imagen_alt }}" maxlength="200"
+                placeholder="Ej: Plaza de Armas de Chiclayo al atardecer">
+        </label>
+        <label>Crédito de la imagen (opcional)
+            <input name="imagen_credito" value="{{ v.imagen_credito }}" maxlength="200"
+                placeholder="Ej: Foto propia / Pexels / Municipalidad de Chiclayo">
+        </label>
+    </div>
+
+    <label>Datos clave (una línea por dato, formato <code>Título: valor</code>)
+        <textarea name="datos_texto" rows="5"
+            placeholder="Quién puede postular: Mayores de 18 años&#10;Sueldo: S/ 1,500&#10;Fecha límite: 15 de octubre">{{ v.datos_texto }}</textarea>
+    </label>
+
+    <div>
+        <span class="etiqueta">Contenido</span>
+        <div id="editor">{{ v.contenido|safe }}</div>
+        <input type="hidden" name="contenido" id="contenido">
+    </div>
+
+    <label>Enlace a la fuente oficial (opcional)
+        <input type="url" name="fuente_url" value="{{ v.fuente_url }}" placeholder="https://www.gob.pe/...">
+    </label>
+
+    {% if current_user.es_admin %}
+    <label class="check">
+        <input type="checkbox" name="destacado" {{ 'checked' if v.destacado }}> Mostrar como destacado en el inicio
+    </label>
+    {% endif %}
+
+    <button class="btn-adm">Guardar</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
+<script>
+    const quill = new Quill('#editor', {
+        theme: 'snow',
+        placeholder: 'Escribe aquí el artículo...',
+        modules: {
+            toolbar: [
+                [{ header: [2, 3, false] }],
+                ['bold', 'italic', 'underline'],
+                [{ list: 'ordered' }, { list: 'bullet' }],
+                ['blockquote', 'link'],
+                ['clean']
+            ]
+        }
+    });
+    document.getElementById('form').addEventListener('submit', function () {
+        document.getElementById('contenido').value = quill.root.innerHTML;
+    });
+</script>
+{% endblock %}

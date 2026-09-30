@@ -1,0 +1,57 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Artículos{% endblock %}
+{% block content %}
+<div class="adm-titulo">
+    <h1>Artículos</h1>
+    <a class="btn-adm" href="{{ url_for('admin.articulo_form') }}">+ Nuevo artículo</a>
+</div>
+
+{% if articulos %}
+<div class="tabla-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Título</th>
+                <th>Categoría</th>
+                <th>Estado</th>
+                <th>Autor</th>
+                <th>Fecha</th>
+                <th>Visitas</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for a in articulos %}
+            <tr>
+                <td><strong>{{ a.titulo }}</strong>{% if a.destacado %} ★{% endif %}</td>
+                <td>{{ a.categoria.corto }}</td>
+                <td><span class="estado {{ a.estado }}">{{ a.estado }}</span></td>
+                <td>{{ a.autor.nombre }}</td>
+                <td>{{ a.fecha }}</td>
+                <td>{{ a.visitas }}</td>
+                <td class="acciones">
+                    <a href="{{ url_for('admin.articulo_form', id=a.id) }}">Editar</a>
+                    {% if a.estado == 'publicado' %}
+                    <a href="{{ url_for('articulo', slug=a.slug) }}" target="_blank">Ver</a>
+                    {% else %}
+                    <a href="{{ url_for('admin.articulo_vista', id=a.id) }}" target="_blank">Vista previa</a>
+                    {% endif %}
+                    <form method="post" action="{{ url_for('admin.articulo_estado', id=a.id) }}">
+                        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                        <button class="link">{{ 'Despublicar' if a.estado == 'publicado' else 'Publicar' }}</button>
+                    </form>
+                    <form method="post" action="{{ url_for('admin.articulo_eliminar', id=a.id) }}"
+                        onsubmit="return confirm('¿Eliminar este artículo?')">
+                        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                        <button class="link peligro">Eliminar</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p>Aún no hay artículos. Crea el primero.</p>
+{% endif %}
+{% endblock %}

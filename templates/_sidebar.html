@@ -1,0 +1,8 @@
+{% from '_macros.html' import item, anuncio with context %}
+<aside class="sidebar">
+    {{ anuncio('lateral') }}
+    <div class="panel">
+        <h5>Lo más reciente</h5>
+        {% for a in RECIENTES %}{{ item(a) }}{% endfor %}
+    </div>
+</aside>

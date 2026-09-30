@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% from '_macros.html' import tarjeta, anuncio with context %}
+
+{% block title %}{{ cat.nombre if cat else 'Resultados de búsqueda' }} | Por Si Acaso{% endblock %}
+{% block description %}{{ cat.descripcion if cat else 'Resultados de búsqueda en Por Si Acaso' }}{% endblock %}
+{% block robots %}{{ 'index, follow' if cat and articulos else 'noindex, follow' }}{% endblock %}
+
+{% block content %}
+
+<section class="cabecera-cat">
+    <div class="container cabecera-inner">
+        <div>
+            <span class="sec-label">{{ 'Sección' if cat else 'Búsqueda' }}</span>
+            {% if cat %}
+            <h1>{{ cat.icono }} {{ cat.nombre }}</h1>
+            <p>{{ cat.descripcion }}</p>
+            {% else %}
+            <h1>Resultados para “{{ q }}”</h1>
+            {% endif %}
+        </div>
+        {% if cat and articulos and articulos[0].imagen %}
+        <img class="cabecera-img" src="{{ url_for('static', filename='uploads/' + articulos[0].imagen) }}" alt="{{ cat.nombre }}">
+        {% endif %}
+    </div>
+</section>
+
+<div class="container">
+    {{ anuncio('superior') }}
+
+    <div class="con-sidebar">
+        <section>
+            <h2 class="titulo">Publicaciones</h2>
+            {% if articulos %}
+            <div class="grid-2">
+                {% for a in articulos %}{{ tarjeta(a) }}{% endfor %}
+            </div>
+            {% else %}
+            <p class="vacio">Aún no hay publicaciones aquí. Vuelve pronto.</p>
+            {% endif %}
+        </section>
+        {% include "_sidebar.html" %}
+    </div>
+</div>
+{% endblock %}

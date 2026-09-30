@@ -1,0 +1,25 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Páginas{% endblock %}
+{% block content %}
+<h1>Páginas fijas</h1>
+<p style="margin-bottom:16px">Sobre nosotros, privacidad, contacto, etc. Edítalas con tus datos reales.</p>
+
+<div class="tabla-wrap">
+<table>
+    <thead><tr><th>Título</th><th>Dirección</th><th>Actualizada</th><th></th></tr></thead>
+    <tbody>
+    {% for p in paginas %}
+        <tr>
+            <td><strong>{{ p.titulo }}</strong></td>
+            <td>/{{ p.slug }}</td>
+            <td>{{ p.actualizado.strftime('%d/%m/%Y') }}</td>
+            <td class="acciones">
+                <a href="{{ url_for('admin.pagina_form', id=p.id) }}">Editar</a>
+                <a href="{{ url_for('pagina', slug=p.slug) }}" target="_blank">Ver</a>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock %}

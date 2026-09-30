@@ -1,0 +1,14 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Mi cuenta{% endblock %}
+{% block content %}
+<h1>Mi cuenta</h1>
+<p>{{ current_user.nombre }} · {{ current_user.email }} · {{ current_user.rol }}</p>
+
+<form method="post" class="form-art caja">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <h3>Cambiar contraseña</h3>
+    <label>Contraseña actual <input type="password" name="actual" required></label>
+    <label>Nueva contraseña (mín. 8) <input type="password" name="nueva" minlength="8" required></label>
+    <button class="btn-adm">Actualizar</button>
+</form>
+{% endblock %}

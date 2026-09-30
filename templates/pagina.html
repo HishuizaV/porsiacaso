@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}{{ titulo }} | Por Si Acaso{% endblock %}
+{% block robots %}{{ 'noindex, follow' if noindex else 'index, follow' }}{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="pagina">
+        <h1>{{ titulo }}</h1>
+        <div class="prose">{{ contenido|safe }}</div>
+    </div>
+</div>
+{% endblock %}

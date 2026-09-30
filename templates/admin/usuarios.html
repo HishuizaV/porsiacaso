@@ -1,0 +1,48 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Usuarios{% endblock %}
+{% block content %}
+<h1>Usuarios</h1>
+
+<form method="post" class="form-art caja">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <h3>Dar acceso a alguien</h3>
+    <div class="fila">
+        <label>Nombre <input name="nombre" required></label>
+        <label>Correo <input type="email" name="email" required></label>
+    </div>
+    <div class="fila">
+        <label>Contraseña (mín. 8) <input type="password" name="password" minlength="8" required></label>
+        <label>Rol
+            <select name="rol">
+                <option value="editor">Editor (solo sus artículos)</option>
+                <option value="admin">Administrador (todo)</option>
+            </select>
+        </label>
+    </div>
+    <button class="btn-adm">Crear usuario</button>
+</form>
+
+<div class="tabla-wrap">
+<table>
+    <thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th></th></tr></thead>
+    <tbody>
+    {% for u in usuarios %}
+        <tr>
+            <td>{{ u.nombre }}</td>
+            <td>{{ u.email }}</td>
+            <td>{{ u.rol }}</td>
+            <td>{{ 'Activo' if u.activo else 'Desactivado' }}</td>
+            <td class="acciones">
+                {% if u.id != current_user.id %}
+                <form method="post" action="{{ url_for('admin.usuario_activo', id=u.id) }}">
+                    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                    <button class="link">{{ 'Desactivar' if u.activo else 'Activar' }}</button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock %}

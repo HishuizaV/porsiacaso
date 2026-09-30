@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>{% block title %}Panel{% endblock %} | Por Si Acaso</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    {% block head %}{% endblock %}
+</head>
+<body>
+
+{% if current_user.is_authenticated %}
+<header class="adm-bar">
+    <a href="{{ url_for('admin.panel') }}" class="adm-marca">Por Si Acaso · Panel</a>
+    <nav>
+        <a href="{{ url_for('admin.panel') }}">Artículos</a>
+        <a href="{{ url_for('admin.articulo_form') }}">+ Nuevo</a>
+        {% if current_user.es_admin %}<a href="{{ url_for('admin.usuarios') }}">Usuarios</a>{% endif %}
+        {% if current_user.es_admin %}<a href="{{ url_for('admin.paginas') }}">Páginas</a>{% endif %}
+        <a href="{{ url_for('admin.cuenta') }}">Mi cuenta</a>
+        <a href="{{ url_for('inicio') }}" target="_blank">Ver sitio ↗</a>
+    </nav>
+    <form method="post" action="{{ url_for('admin.logout') }}">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button class="link">Salir ({{ current_user.nombre }})</button>
+    </form>
+</header>
+{% endif %}
+
+<main class="adm-main">
+    {% with mensajes = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in mensajes %}<div class="flash {{ cat }}">{{ msg }}</div>{% endfor %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+</main>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

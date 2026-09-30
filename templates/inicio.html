@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% from '_macros.html' import tarjeta, item, anuncio with context %}
+
+{% block content %}
+
+<section class="hero">
+    <div class="container">
+        <div class="hero-text">
+            <span class="hero-tag">Información verificada</span>
+            <h1>Encuentra información útil, oportunidades y datos importantes para tu día a día</h1>
+            <p>Empleos, becas, beneficios, trámites, turismo y actualidad del Perú, explicados sin vueltas.</p>
+            <a href="#categorias" class="btn">Explorar información →</a>
+        </div>
+    </div>
+</section>
+
+<div class="container">
+
+    {{ anuncio('superior') }}
+
+    <h2 class="titulo" id="categorias">Categorías</h2>
+    <div class="categorias">
+        {% for c in CATEGORIAS %}
+        <a class="cat-card" href="{{ url_for('categoria', slug=c.slug) }}">
+            <span class="cat-icono">{{ c.icono }}</span>
+            <h3>{{ c.nombre }}</h3>
+            <p>{{ c.descripcion }}</p>
+            <span class="cat-linea"></span>
+        </a>
+        {% endfor %}
+    </div>
+
+    {% if destacados %}
+    <h2 class="titulo">Artículos destacados</h2>
+    <div class="destacados">
+        {% for a in destacados %}
+            {{ tarjeta(a, grande=loop.first) }}
+        {% endfor %}
+    </div>
+
+    <div class="con-sidebar">
+        <section>
+            <h2 class="titulo">Últimas publicaciones</h2>
+            <div class="panel">
+                {% for a in recientes %}{{ item(a) }}{% endfor %}
+            </div>
+        </section>
+        {% include "_sidebar.html" %}
+    </div>
+    {% else %}
+    <p class="vacio">Pronto publicaremos información útil aquí. Vuelve en unos días.</p>
+    {% endif %}
+
+</div>
+{% endblock %}

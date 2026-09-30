@@ -1,0 +1,44 @@
+{% macro foto(a, eager=False) %}
+{% if a.imagen %}
+<img src="{{ url_for('static', filename='uploads/' + a.imagen) }}"
+     alt="{{ a.imagen_alt or a.titulo }}"
+     loading="{{ 'eager' if eager else 'lazy' }}" decoding="async">
+{% else %}
+<div class="sin-foto"><span>{{ a.categoria.icono }}</span></div>
+{% endif %}
+{% endmacro %}
+
+{% macro tarjeta(a, grande=False) %}
+<article class="tarjeta {{ 'grande' if grande }}">
+    <a href="{{ url_for('articulo', slug=a.slug) }}">
+        <div class="tarjeta-img">
+            <span class="badge">{{ a.categoria.corto }}</span>
+            {{ foto(a) }}
+        </div>
+        <div class="tarjeta-body">
+            <h3>{{ a.titulo }}</h3>
+            <p>{{ a.resumen }}</p>
+            <small>{{ a.fecha }} · {{ a.lectura }} min de lectura</small>
+        </div>
+    </a>
+</article>
+{% endmacro %}
+
+{% macro item(a) %}
+<a class="item" href="{{ url_for('articulo', slug=a.slug) }}">
+    <div class="item-img">{{ foto(a) }}</div>
+    <div>
+        <span class="item-cat">{{ a.categoria.corto }}</span>
+        <h4>{{ a.titulo }}</h4>
+        <small>{{ a.fecha }}</small>
+    </div>
+</a>
+{% endmacro %}
+
+{% macro anuncio(tipo) %}
+{% if ANUNCIOS == 'maqueta' %}
+<aside class="ad ad-{{ tipo }}" aria-label="Publicidad">
+    <span>Publicidad {{ tipo }}</span>
+</aside>
+{% endif %}
+{% endmacro %}
