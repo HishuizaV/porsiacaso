@@ -3,7 +3,7 @@
 
 {% block title %}{{ cat.nombre if cat else 'Resultados de búsqueda' }} | Por Si Acaso{% endblock %}
 {% block description %}{{ cat.descripcion if cat else 'Resultados de búsqueda en Por Si Acaso' }}{% endblock %}
-{% block robots %}{{ 'index, follow' if cat and articulos else 'noindex, follow' }}{% endblock %}
+{% block robots %}{{ 'index, follow' if cat and articulos and cat.visible else 'noindex, follow' }}{% endblock %}
 
 {% block content %}
 

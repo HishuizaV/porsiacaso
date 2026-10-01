@@ -71,3 +71,13 @@ PAGINAS_INICIALES = [
 <p>Estos términos pueden modificarse en cualquier momento.</p>
 """),
 ]
+
+REGIONES_INICIALES = [
+    "Amazonas", "Áncash", "Apurímac", "Arequipa", "Ayacucho", "Cajamarca", "Callao",
+    "Cusco", "Huancavelica", "Huánuco", "Ica", "Junín", "La Libertad", "Lambayeque",
+    "Lima", "Loreto", "Madre de Dios", "Moquegua", "Pasco", "Piura", "Puno",
+    "San Martín", "Tacna", "Tumbes", "Ucayali",
+]
+
+# (ciudad, región). Las demás las agregas tú desde el panel.
+CIUDADES_INICIALES = [("Chiclayo", "Lambayeque")]

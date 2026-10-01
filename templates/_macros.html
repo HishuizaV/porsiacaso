@@ -18,7 +18,7 @@
         <div class="tarjeta-body">
             <h3>{{ a.titulo }}</h3>
             <p>{{ a.resumen }}</p>
-            <small>{{ a.fecha }} · {{ a.lectura }} min de lectura</small>
+            <small>{{ a.fecha }} · {{ a.lectura }} min de lectura{% if a.ubicacion %} · 📍 {{ a.ubicacion.nombre }}{% endif %}</small>
         </div>
     </a>
 </article>

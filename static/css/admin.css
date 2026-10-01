@@ -54,3 +54,6 @@ th { background: #f9fafb; font-size: 12px; text-transform: uppercase; color: #6b
 #editor { height: 340px; background: #fff; font-size: 16px; margin-top: 6px; }
 
 @media (max-width: 700px) { .fila { grid-template-columns: 1fr; } }
+
+.ayuda { font-size: 13px; color: #6b7280; margin-bottom: 16px; }
+td small { color: #6b7280; }

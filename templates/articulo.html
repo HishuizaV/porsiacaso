@@ -59,7 +59,7 @@
         <article class="articulo">
             <a class="badge badge-link" href="{{ url_for('categoria', slug=cat.slug) }}">{{ cat.corto }}</a>
             <h1>{{ a.titulo }}</h1>
-            <p class="meta">{{ a.fecha }} · {{ a.lectura }} min de lectura · Por {{ a.autor.nombre }}</p>
+            <p class="meta">{{ a.fecha }} · {{ a.lectura }} min de lectura · Por {{ a.autor.nombre }}{% if a.ubicacion %} · 📍 <a href="{{ url_for('zona', slug=a.ubicacion.slug) }}">{{ a.ubicacion.nombre }}</a>{% endif %}</p>
 
             <figure class="articulo-fig">
                 <div class="articulo-img">{{ foto(a, eager=True) }}</div>

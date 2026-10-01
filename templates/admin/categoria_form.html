@@ -1,0 +1,39 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}{{ 'Editar' if c else 'Nueva' }} categoría{% endblock %}
+{% block content %}
+<h1>{{ 'Editar categoría' if c else 'Nueva categoría' }}</h1>
+
+<form method="post" class="form-art">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+
+    <div class="fila">
+        <label>Nombre completo
+            <input name="nombre" value="{{ v.nombre }}" maxlength="80" required placeholder="Ej: Cursos y capacitaciones">
+        </label>
+        <label>Nombre corto (para el menú)
+            <input name="corto" value="{{ v.corto }}" maxlength="40" required placeholder="Ej: Cursos">
+        </label>
+    </div>
+
+    <div class="fila">
+        <label>Ícono (un emoji)
+            <input name="icono" value="{{ v.icono }}" maxlength="10">
+        </label>
+        <label>Orden (menor = más a la izquierda)
+            <input type="number" name="orden" value="{{ v.orden }}">
+        </label>
+    </div>
+
+    <label>Descripción (se ve en el inicio y en Google)
+        <textarea name="descripcion" rows="3">{{ v.descripcion }}</textarea>
+    </label>
+
+    {% if c %}<p class="ayuda">Dirección: /categoria/{{ c.slug }} (no cambia al editar, para no romper enlaces).</p>{% endif %}
+
+    <label class="check">
+        <input type="checkbox" name="visible" {{ 'checked' if v.visible }}> Visible en el menú y en el inicio
+    </label>
+
+    <button class="btn-adm">Guardar</button>
+</form>
+{% endblock %}

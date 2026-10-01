@@ -1,6 +1,9 @@
 from datetime import datetime
+
+import sqlalchemy as sa
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
+
 from extensions import db, login_manager
 
 MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
@@ -38,7 +41,22 @@ class Categoria(db.Model):
     icono = db.Column(db.String(10))
     descripcion = db.Column(db.Text)
     orden = db.Column(db.Integer, default=0)
+    visible = db.Column(db.Boolean, nullable=False, default=True,
+                        server_default=sa.true())
     articulos = db.relationship("Articulo", backref="categoria", lazy=True)
+
+
+class Ubicacion(db.Model):
+    """Regiones y ciudades. Una ciudad apunta a su región con padre_id."""
+    id = db.Column(db.Integer, primary_key=True)
+    slug = db.Column(db.String(80), unique=True, nullable=False)
+    nombre = db.Column(db.String(80), nullable=False)
+    tipo = db.Column(db.String(10), nullable=False, default="region")   # region | ciudad
+    padre_id = db.Column(db.Integer, db.ForeignKey("ubicacion.id"))
+    padre = db.relationship(
+        "Ubicacion", remote_side=[id],
+        backref=db.backref("hijas", order_by="Ubicacion.nombre"))
+    articulos = db.relationship("Articulo", backref="ubicacion", lazy=True)
 
 
 class Articulo(db.Model):
@@ -58,8 +76,9 @@ class Articulo(db.Model):
     lectura = db.Column(db.Integer, default=1)
     fecha_publicacion = db.Column(db.DateTime)
     creado = db.Column(db.DateTime, default=datetime.now)
-    actualizado = db.Column(db.DateTime, default=datetime.now)   # se cambia solo al editar
+    actualizado = db.Column(db.DateTime, default=datetime.now)
     categoria_id = db.Column(db.Integer, db.ForeignKey("categoria.id"), nullable=False)
+    ubicacion_id = db.Column(db.Integer, db.ForeignKey("ubicacion.id"))   # None = todo el Perú
     autor_id = db.Column(db.Integer, db.ForeignKey("usuario.id"), nullable=False)
     autor = db.relationship("Usuario")
 

@@ -24,7 +24,7 @@
             {% for a in articulos %}
             <tr>
                 <td><strong>{{ a.titulo }}</strong>{% if a.destacado %} ★{% endif %}</td>
-                <td>{{ a.categoria.corto }}</td>
+                <td>{{ a.categoria.corto }}{% if a.ubicacion %}<br><small>📍 {{ a.ubicacion.nombre }}</small>{% endif %}</td>
                 <td><span class="estado {{ a.estado }}">{{ a.estado }}</span></td>
                 <td>{{ a.autor.nombre }}</td>
                 <td>{{ a.fecha }}</td>

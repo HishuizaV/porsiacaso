@@ -33,6 +33,20 @@
         </label>
     </div>
 
+    <label>Zona (dónde aplica esta información)
+        <select name="ubicacion_id">
+            <option value="">🇵🇪 Todo el Perú (nacional)</option>
+            {% for r in regiones %}
+            <optgroup label="{{ r.nombre }}">
+                <option value="{{ r.id }}" {{ 'selected' if v.ubicacion_id == r.id }}>{{ r.nombre }} (toda la región)</option>
+                {% for c in r.hijas %}
+                <option value="{{ c.id }}" {{ 'selected' if v.ubicacion_id == c.id }}>{{ c.nombre }}</option>
+                {% endfor %}
+            </optgroup>
+            {% endfor %}
+        </select>
+    </label>
+
     <label>Resumen (se muestra en las tarjetas y en Google)
         <textarea name="resumen" rows="2" maxlength="400">{{ v.resumen }}</textarea>
     </label>

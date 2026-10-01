@@ -16,8 +16,12 @@
     <nav>
         <a href="{{ url_for('admin.panel') }}">Artículos</a>
         <a href="{{ url_for('admin.articulo_form') }}">+ Nuevo</a>
-        {% if current_user.es_admin %}<a href="{{ url_for('admin.usuarios') }}">Usuarios</a>{% endif %}
-        {% if current_user.es_admin %}<a href="{{ url_for('admin.paginas') }}">Páginas</a>{% endif %}
+        {% if current_user.es_admin %}
+        <a href="{{ url_for('admin.categorias_lista') }}">Categorías</a>
+        <a href="{{ url_for('admin.ubicaciones_lista') }}">Zonas</a>
+        <a href="{{ url_for('admin.paginas') }}">Páginas</a>
+        <a href="{{ url_for('admin.usuarios') }}">Usuarios</a>
+        {% endif %}
         <a href="{{ url_for('admin.cuenta') }}">Mi cuenta</a>
         <a href="{{ url_for('inicio') }}" target="_blank">Ver sitio ↗</a>
     </nav>

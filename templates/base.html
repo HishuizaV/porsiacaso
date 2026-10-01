@@ -56,20 +56,55 @@
             </span>
         </a>
 
-        <form class="search" action="{{ url_for('buscar') }}" method="get">
-            <input type="search" name="q" placeholder="Buscar información..." aria-label="Buscar">
-        </form>
+        <div class="header-der">
 
-        <button class="menu-btn" id="menuBtn" aria-label="Abrir menú" aria-expanded="false">☰</button>
+            <details class="ubic">
+                <summary>📍 {{ ubic.nombre if (ubic is defined and ubic) else 'Todo el Perú' }} ▾</summary>
+                <div class="ubic-panel">
+                    <a href="{{ url_for('inicio') }}" class="ubic-todo">🇵🇪 Todo el Perú</a>
+                    {% for g in ZONAS %}
+                    <a href="{{ url_for('zona', slug=g.region.slug) }}" class="ubic-region">{{ g.region.nombre }}</a>
+                        {% for c in g.ciudades %}
+                        <a href="{{ url_for('zona', slug=c.slug) }}" class="ubic-ciudad">{{ c.nombre }}</a>
+                        {% endfor %}
+                    {% endfor %}
+                    {% if not ZONAS %}
+                    <span class="ubic-vacio">Pronto habrá información por zona.</span>
+                    {% endif %}
+                </div>
+            </details>
+
+            <form class="search" action="{{ url_for('buscar') }}" method="get">
+                <input type="search" name="q" placeholder="Buscar información..." aria-label="Buscar">
+            </form>
+
+            <button class="menu-btn" id="menuBtn" aria-label="Abrir menú" aria-expanded="false">☰</button>
+        </div>
     </div>
 
     <nav class="nav" id="nav">
         <div class="container nav-inner">
+            {% set principales = CATEGORIAS[:7] %}
+            {% set extras = CATEGORIAS[7:] %}
             <a href="{{ url_for('inicio') }}" class="{{ 'active' if request.endpoint == 'inicio' }}">Inicio</a>
-            {% for c in CATEGORIAS %}
+            {% for c in principales %}
             <a href="{{ url_for('categoria', slug=c.slug) }}"
                class="{{ 'active' if request.endpoint == 'categoria' and request.view_args.slug == c.slug }}">{{ c.corto }}</a>
             {% endfor %}
+
+            {% if extras %}
+                {% for c in extras %}
+                <a class="solo-movil" href="{{ url_for('categoria', slug=c.slug) }}">{{ c.corto }}</a>
+                {% endfor %}
+                <details class="mas solo-desktop">
+                    <summary>Más ▾</summary>
+                    <div class="mas-panel">
+                        {% for c in extras %}
+                        <a href="{{ url_for('categoria', slug=c.slug) }}">{{ c.icono }} {{ c.nombre }}</a>
+                        {% endfor %}
+                    </div>
+                </details>
+            {% endif %}
         </div>
     </nav>
 </header>

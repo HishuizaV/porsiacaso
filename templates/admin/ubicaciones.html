@@ -1,0 +1,47 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Zonas{% endblock %}
+{% block content %}
+<div class="adm-titulo">
+    <h1>Zonas</h1>
+    <a class="btn-adm" href="{{ url_for('admin.ubicacion_editar') }}">+ Nueva zona</a>
+</div>
+<p class="ayuda">Las regiones ya vienen cargadas. Agrega aquí las ciudades. En el sitio solo aparecen las zonas que tienen artículos publicados.</p>
+
+<div class="tabla-wrap">
+<table>
+    <thead><tr><th>Zona</th><th>Tipo</th><th>Artículos</th><th></th></tr></thead>
+    <tbody>
+    {% for r in regiones %}
+        <tr>
+            <td><strong>{{ r.nombre }}</strong><br><small>/zona/{{ r.slug }}</small></td>
+            <td>Región</td>
+            <td>{{ r.articulos|length }}</td>
+            <td class="acciones">
+                <a href="{{ url_for('admin.ubicacion_editar', id=r.id) }}">Editar</a>
+                <form method="post" action="{{ url_for('admin.ubicacion_eliminar', id=r.id) }}"
+                      onsubmit="return confirm('¿Eliminar esta zona?')">
+                    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                    <button class="link peligro">Eliminar</button>
+                </form>
+            </td>
+        </tr>
+        {% for c in r.hijas %}
+        <tr>
+            <td style="padding-left:32px">↳ {{ c.nombre }}<br><small>/zona/{{ c.slug }}</small></td>
+            <td>Ciudad</td>
+            <td>{{ c.articulos|length }}</td>
+            <td class="acciones">
+                <a href="{{ url_for('admin.ubicacion_editar', id=c.id) }}">Editar</a>
+                <form method="post" action="{{ url_for('admin.ubicacion_eliminar', id=c.id) }}"
+                      onsubmit="return confirm('¿Eliminar esta zona?')">
+                    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                    <button class="link peligro">Eliminar</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock %}

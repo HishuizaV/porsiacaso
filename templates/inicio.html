@@ -18,6 +18,15 @@
 
     {{ anuncio('superior') }}
 
+    {% if ZONAS %}
+    <div class="zonas">
+        <strong>📍 Elige tu zona:</strong>
+        {% for g in ZONAS %}
+        <a class="chip" href="{{ url_for('zona', slug=g.region.slug) }}">{{ g.region.nombre }}</a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     <h2 class="titulo" id="categorias">Categorías</h2>
     <div class="categorias">
         {% for c in CATEGORIAS %}

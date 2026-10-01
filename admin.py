@@ -8,7 +8,7 @@ from flask import (Blueprint, render_template, request, redirect,
 from flask_login import login_user, logout_user, login_required, current_user
 
 from extensions import db
-from models import Usuario, Categoria, Articulo, Pagina
+from models import Usuario, Categoria, Ubicacion, Articulo, Pagina
 from utils import slugify, limpiar_html, minutos_lectura, guardar_imagen
 
 admin = Blueprint("admin", __name__, url_prefix="/admin")
@@ -50,13 +50,18 @@ def puede_editar(a):
     return current_user.es_admin or a.autor_id == current_user.id
 
 
-def slug_unico(titulo):
-    base = slugify(titulo)
-    slug, n = base, 2
-    while Articulo.query.filter_by(slug=slug).first():
-        slug = f"{base}-{n}"
+def slug_unico_modelo(modelo, texto, alternativa=None):
+    """Devuelve un slug que no exista aún en el modelo."""
+    candidatos = [slugify(texto)]
+    if alternativa:
+        candidatos.append(slugify(alternativa))
+    for base in candidatos:
+        if not modelo.query.filter_by(slug=base).first():
+            return base
+    base, n = candidatos[-1], 2
+    while modelo.query.filter_by(slug=f"{base}-{n}").first():
         n += 1
-    return slug
+    return f"{base}-{n}"
 
 
 def borrar_imagen(nombre):
@@ -66,14 +71,19 @@ def borrar_imagen(nombre):
             os.remove(ruta)
 
 
+def regiones_con_ciudades():
+    return Ubicacion.query.filter_by(tipo="region").order_by(Ubicacion.nombre).all()
+
+
 def valores(a):
     if a:
         return dict(titulo=a.titulo, resumen=a.resumen or "", contenido=a.contenido,
-                    categoria_id=a.categoria_id, datos_texto=a.datos_texto or "",
-                    fuente_url=a.fuente_url or "", estado=a.estado, destacado=a.destacado,
+                    categoria_id=a.categoria_id, ubicacion_id=a.ubicacion_id,
+                    datos_texto=a.datos_texto or "", fuente_url=a.fuente_url or "",
+                    estado=a.estado, destacado=a.destacado,
                     imagen_alt=a.imagen_alt or "", imagen_credito=a.imagen_credito or "")
-    return dict(titulo="", resumen="", contenido="", categoria_id=None, datos_texto="",
-                fuente_url="", estado="borrador", destacado=False,
+    return dict(titulo="", resumen="", contenido="", categoria_id=None, ubicacion_id=None,
+                datos_texto="", fuente_url="", estado="borrador", destacado=False,
                 imagen_alt="", imagen_credito="")
 
 
@@ -137,11 +147,13 @@ def articulo_form(id=None):
         titulo = f.get("titulo", "").strip()
         contenido = limpiar_html(f.get("contenido", ""))
         cat_id = f.get("categoria_id", type=int)
+        ubic_id = f.get("ubicacion_id", type=int)
         fuente = f.get("fuente_url", "").strip()
         archivo = request.files.get("imagen")
 
         v = dict(titulo=titulo, resumen=f.get("resumen", "").strip(), contenido=contenido,
-                 categoria_id=cat_id, datos_texto=f.get("datos_texto", "").strip(),
+                 categoria_id=cat_id, ubicacion_id=ubic_id,
+                 datos_texto=f.get("datos_texto", "").strip(),
                  fuente_url=fuente, estado=f.get("estado", "borrador"),
                  destacado=bool(f.get("destacado")),
                  imagen_alt=f.get("imagen_alt", "").strip()[:200],
@@ -152,6 +164,8 @@ def articulo_form(id=None):
             errores.append("El título es obligatorio.")
         if not cat_id:
             errores.append("Elige una categoría.")
+        if ubic_id and not db.session.get(Ubicacion, ubic_id):
+            errores.append("La zona elegida no existe.")
         if not contenido.strip():
             errores.append("Escribe el contenido del artículo.")
         if fuente and not fuente.startswith(("http://", "https://")):
@@ -168,12 +182,13 @@ def articulo_form(id=None):
                 flash(e, "error")
         else:
             if not a:
-                a = Articulo(autor_id=current_user.id, slug=slug_unico(titulo))
+                a = Articulo(autor_id=current_user.id, slug=slug_unico_modelo(Articulo, titulo))
                 db.session.add(a)
             a.titulo = titulo
             a.resumen = v["resumen"]
             a.contenido = contenido
             a.categoria_id = cat_id
+            a.ubicacion_id = ubic_id
             a.datos_texto = v["datos_texto"]
             a.fuente_url = fuente
             a.imagen_alt = v["imagen_alt"]
@@ -192,7 +207,8 @@ def articulo_form(id=None):
             flash("Artículo guardado.", "ok")
             return redirect(url_for("admin.panel"))
 
-    return render_template("admin/articulo_form.html", a=a, v=v, categorias=categorias)
+    return render_template("admin/articulo_form.html", a=a, v=v, categorias=categorias,
+                           regiones=regiones_con_ciudades())
 
 
 @admin.route("/articulo/<int:id>/vista")
@@ -233,6 +249,139 @@ def articulo_eliminar(id):
     db.session.commit()
     flash("Artículo eliminado.", "ok")
     return redirect(url_for("admin.panel"))
+
+
+# ---------- Categorías (solo admin) ----------
+@admin.route("/categorias")
+@login_required
+def categorias_lista():
+    solo_admin()
+    lista = Categoria.query.order_by(Categoria.orden).all()
+    return render_template("admin/categorias.html", categorias=lista)
+
+
+@admin.route("/categorias/nueva", methods=["GET", "POST"])
+@admin.route("/categorias/<int:id>/editar", methods=["GET", "POST"])
+@login_required
+def categoria_editar(id=None):
+    solo_admin()
+    c = db.get_or_404(Categoria, id) if id else None
+    if c:
+        v = dict(nombre=c.nombre, corto=c.corto, icono=c.icono or "",
+                 descripcion=c.descripcion or "", orden=c.orden, visible=c.visible)
+    else:
+        siguiente = (db.session.query(db.func.max(Categoria.orden)).scalar() or 0) + 1
+        v = dict(nombre="", corto="", icono="📌", descripcion="",
+                 orden=siguiente, visible=True)
+
+    if request.method == "POST":
+        f = request.form
+        v = dict(nombre=f.get("nombre", "").strip(), corto=f.get("corto", "").strip(),
+                 icono=f.get("icono", "").strip(), descripcion=f.get("descripcion", "").strip(),
+                 orden=f.get("orden", type=int) or 0, visible=bool(f.get("visible")))
+        if not v["nombre"] or not v["corto"]:
+            flash("El nombre y el nombre corto del menú son obligatorios.", "error")
+        else:
+            if not c:
+                c = Categoria(slug=slug_unico_modelo(Categoria, v["nombre"]))
+                db.session.add(c)
+            c.nombre = v["nombre"][:80]
+            c.corto = v["corto"][:40]
+            c.icono = v["icono"][:10]
+            c.descripcion = v["descripcion"]
+            c.orden = v["orden"]
+            c.visible = v["visible"]
+            db.session.commit()
+            flash("Categoría guardada.", "ok")
+            return redirect(url_for("admin.categorias_lista"))
+    return render_template("admin/categoria_form.html", c=c, v=v)
+
+
+@admin.route("/categorias/<int:id>/eliminar", methods=["POST"])
+@login_required
+def categoria_eliminar(id):
+    solo_admin()
+    c = db.get_or_404(Categoria, id)
+    if c.articulos:
+        flash(f"No se puede eliminar: tiene {len(c.articulos)} artículo(s). "
+              "Ocúltala o mueve sus artículos a otra categoría.", "error")
+    else:
+        db.session.delete(c)
+        db.session.commit()
+        flash("Categoría eliminada.", "ok")
+    return redirect(url_for("admin.categorias_lista"))
+
+
+# ---------- Zonas: regiones y ciudades (solo admin) ----------
+@admin.route("/zonas")
+@login_required
+def ubicaciones_lista():
+    solo_admin()
+    return render_template("admin/ubicaciones.html", regiones=regiones_con_ciudades())
+
+
+@admin.route("/zonas/nueva", methods=["GET", "POST"])
+@admin.route("/zonas/<int:id>/editar", methods=["GET", "POST"])
+@login_required
+def ubicacion_editar(id=None):
+    solo_admin()
+    u = db.get_or_404(Ubicacion, id) if id else None
+    regiones = regiones_con_ciudades()
+    if u:
+        v = dict(nombre=u.nombre, tipo=u.tipo, padre_id=u.padre_id)
+    else:
+        v = dict(nombre="", tipo="ciudad", padre_id=None)
+
+    if request.method == "POST":
+        f = request.form
+        nombre = f.get("nombre", "").strip()
+        tipo = "region" if f.get("tipo") == "region" else "ciudad"
+        padre_id = f.get("padre_id", type=int)
+        v = dict(nombre=nombre, tipo=tipo, padre_id=padre_id)
+        padre = db.session.get(Ubicacion, padre_id) if padre_id else None
+
+        errores = []
+        if not nombre:
+            errores.append("El nombre es obligatorio.")
+        if tipo == "ciudad":
+            if not padre or padre.tipo != "region":
+                errores.append("Elige la región a la que pertenece la ciudad.")
+            if u and u.hijas:
+                errores.append("Esta zona tiene ciudades dentro; no puede pasar a ser ciudad.")
+        else:
+            padre = None
+
+        if errores:
+            for e in errores:
+                flash(e, "error")
+        else:
+            if not u:
+                alternativa = f"{nombre} {padre.nombre}" if padre else None
+                u = Ubicacion(slug=slug_unico_modelo(Ubicacion, nombre, alternativa))
+                db.session.add(u)
+            u.nombre = nombre[:80]
+            u.tipo = tipo
+            u.padre_id = padre.id if padre else None
+            db.session.commit()
+            flash("Zona guardada.", "ok")
+            return redirect(url_for("admin.ubicaciones_lista"))
+    return render_template("admin/ubicacion_form.html", u=u, v=v, regiones=regiones)
+
+
+@admin.route("/zonas/<int:id>/eliminar", methods=["POST"])
+@login_required
+def ubicacion_eliminar(id):
+    solo_admin()
+    u = db.get_or_404(Ubicacion, id)
+    if u.articulos:
+        flash(f"No se puede eliminar: tiene {len(u.articulos)} artículo(s).", "error")
+    elif u.hijas:
+        flash("No se puede eliminar: tiene ciudades dentro. Elimina primero las ciudades.", "error")
+    else:
+        db.session.delete(u)
+        db.session.commit()
+        flash("Zona eliminada.", "ok")
+    return redirect(url_for("admin.ubicaciones_lista"))
 
 
 # ---------- Páginas fijas (solo admin) ----------

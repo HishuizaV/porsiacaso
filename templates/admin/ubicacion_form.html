@@ -1,0 +1,34 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}{{ 'Editar' if u else 'Nueva' }} zona{% endblock %}
+{% block content %}
+<h1>{{ 'Editar zona' if u else 'Nueva zona' }}</h1>
+
+<form method="post" class="form-art">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+
+    <label>Nombre
+        <input name="nombre" value="{{ v.nombre }}" maxlength="80" required placeholder="Ej: Ferreñafe">
+    </label>
+
+    <div class="fila">
+        <label>Tipo
+            <select name="tipo">
+                <option value="ciudad" {{ 'selected' if v.tipo == 'ciudad' }}>Ciudad</option>
+                <option value="region" {{ 'selected' if v.tipo == 'region' }}>Región</option>
+            </select>
+        </label>
+        <label>Región (obligatoria si es ciudad)
+            <select name="padre_id">
+                <option value="">—</option>
+                {% for r in regiones %}
+                <option value="{{ r.id }}" {{ 'selected' if v.padre_id == r.id }}>{{ r.nombre }}</option>
+                {% endfor %}
+            </select>
+        </label>
+    </div>
+
+    {% if u %}<p class="ayuda">Dirección: /zona/{{ u.slug }} (no cambia al editar).</p>{% endif %}
+
+    <button class="btn-adm">Guardar</button>
+</form>
+{% endblock %}
