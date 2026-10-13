@@ -43,7 +43,7 @@
                 <div class="ficha-org">
                     {{ logo_org(a) }}
                     <div><strong>{{ a.institucion.nombre }}</strong>
-                        <small>{% if a.institucion.sector %}{{ {'publico':'Sector público','privado':'Sector privado','ong':'ONG','internacional':'Organismo internacional','educativo':'Institución educativa'}[a.institucion.sector] }}{% endif %}{% if a.ubicacion %} · 📍 <a class="enlace" href="{{ url_for('web.zona', slug=a.ubicacion.slug) }}">{{ a.ubicacion.nombre }}{% if a.ubicacion.tipo == 'ciudad' %}, {{ a.ubicacion.region.nombre }}{% endif %}</a>{% endif %}</small></div>
+                        <small>{% if a.institucion.sector %}{{ {'publico':'Sector público','privado':'Sector privado','ong':'ONG','internacional':'Organismo internacional','educativo':'Institución educativa'}[a.institucion.sector] }}{% endif %}{% if a.ubicacion %}{% if a.institucion.sector %} · {% endif %}📍 <a class="enlace" href="{{ url_for('web.zona', slug=a.ubicacion.slug) }}">{{ a.ubicacion.nombre }}{% if a.ubicacion.tipo == 'ciudad' %}, {{ a.ubicacion.region.nombre }}{% endif %}</a>{% endif %}</small></div>
                 </div>
                 {% endif %}
                 <p class="ficha-meta">

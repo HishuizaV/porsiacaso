@@ -30,7 +30,7 @@
         <a class="acceso" href="{{ url_for('web.seccion', tipo=clave) }}">
             <span class="acceso-icono" aria-hidden="true">{{ t.icono }}</span>
             <strong>{{ t.plural }}</strong>
-            <small>{{ CONTEOS[clave] }} publicación{{ 'es' if CONTEOS[clave] != 1 }}</small>
+            <small>{{ CONTEOS[clave] }} {{ 'publicación' if CONTEOS[clave] == 1 else 'publicaciones' }}</small>
         </a>
         {% endfor %}
     </nav>

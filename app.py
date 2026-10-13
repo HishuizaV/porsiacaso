@@ -166,7 +166,7 @@ def registrar_comandos(app):
                                       visible=False))
                 nuevas += 1
         db.session.commit()
-        click.echo(f"{nuevas} página(s) agregada(s) como ocultas. Revísalas en el panel → Páginas.")
+        click.echo(f"{nuevas} página(s) agregada(s) como ocultas. Revísalas en el panel: Páginas.")
 
     @app.cli.command("crear-admin")
     @click.option("--nombre", prompt=True)

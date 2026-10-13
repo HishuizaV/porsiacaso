@@ -6,9 +6,6 @@ from collections import defaultdict, deque
 
 from flask import session, request, abort
 
-EXENTOS = set()   # endpoints sin CSRF (APIs JSON que validan el origen por su cuenta)
-
-
 def csrf_token():
     if "_csrf" not in session:
         session["_csrf"] = secrets.token_hex(16)
@@ -16,7 +13,7 @@ def csrf_token():
 
 
 def exento_csrf(vista):
-    EXENTOS.add(vista.__module__ + "." + vista.__name__)
+    """Para APIs JSON que validan el origen por su cuenta."""
     vista._csrf_exento = True
     return vista
 

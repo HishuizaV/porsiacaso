@@ -244,7 +244,7 @@ h1, h2, h3, h4 { color: var(--tinta); line-height: 1.2; letter-spacing: -.015em;
 .paginacion .deshabilitado { opacity: .45; }
 
 /* ---------- Ficha de publicación ---------- */
-.ficha { padding: 20px 0 10px; }
+.ficha { padding-top: 20px; padding-bottom: 10px; }
 .ficha-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
 .ficha-cabecera { background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radio);
     padding: 20px; }

@@ -107,14 +107,21 @@ def inicio():
     base = publicados()
     destacados = (base.filter(Articulo.destacado.is_(True), filtro_vigentes())
                   .order_by(Articulo.fecha_publicacion.desc()).limit(3).all())
-    oportunidades = (base.filter(Articulo.tipo.in_(OPORTUNIDADES), filtro_vigentes())
-                     .order_by(Articulo.fecha_publicacion.desc()).limit(6).all())
+    # Cada publicación aparece una sola vez en la portada
+    por_vencer = [a for a in fichas_por_vencer() if a not in destacados]
+    mostrados = [a.id for a in destacados + por_vencer]
+    oportunidades = base.filter(Articulo.tipo.in_(OPORTUNIDADES), filtro_vigentes())
+    if mostrados:
+        oportunidades = oportunidades.filter(Articulo.id.notin_(mostrados))
+    oportunidades = oportunidades.order_by(Articulo.fecha_publicacion.desc()).limit(6).all()
     guias = (base.filter(Articulo.tipo.in_(["guia", "tramite"]))
              .order_by(Articulo.fecha_publicacion.desc()).limit(4).all())
-    noticias = (base.filter(Articulo.tipo.in_(TIPOS_ARTICULO))
-                .order_by(Articulo.fecha_publicacion.desc()).limit(4).all())
+    noticias = base.filter(Articulo.tipo.in_(TIPOS_ARTICULO))
+    if mostrados:
+        noticias = noticias.filter(Articulo.id.notin_(mostrados))
+    noticias = noticias.order_by(Articulo.fecha_publicacion.desc()).limit(4).all()
     return render_template("inicio.html", destacados=destacados, oportunidades=oportunidades,
-                           por_vencer=fichas_por_vencer(), guias=guias, noticias=noticias,
+                           por_vencer=por_vencer, guias=guias, noticias=noticias,
                            regiones=zonas_con_contenido()[:12])
 
 

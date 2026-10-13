@@ -14,15 +14,15 @@
         {% for k, n in c.opciones %}<option value="{{ k }}" {{ 'selected' if valor == k }}>{{ n }}</option>{% endfor %}
     </select>
     {% elif c.tipo in ('lineas', 'parrafo') %}
-    <textarea id="{{ id }}" name="{{ id }}" rows="{{ 5 if c.tipo == 'lineas' else 3 }}" placeholder="{{ c.ejemplo }}">{{ valor or '' }}</textarea>
+    <textarea id="{{ id }}" name="{{ id }}" rows="{{ 5 if c.tipo == 'lineas' else 3 }}" placeholder="{{ ('Ej.: ' ~ c.ejemplo) if c.ejemplo else '' }}">{{ valor or '' }}</textarea>
     {% elif c.tipo == 'fecha' %}
     <input id="{{ id }}" type="date" name="{{ id }}" value="{{ valor.isoformat() if valor else '' }}">
     {% elif c.tipo == 'numero' %}
     <input id="{{ id }}" type="number" min="1" step="1" inputmode="numeric" name="{{ id }}" value="{{ valor if valor is not none else '' }}">
     {% elif c.tipo == 'decimal' %}
-    <input id="{{ id }}" type="text" inputmode="decimal" name="{{ id }}" value="{{ valor if valor is not none else '' }}" placeholder="{{ c.ejemplo }}">
+    <input id="{{ id }}" type="text" inputmode="decimal" name="{{ id }}" value="{{ valor if valor is not none else '' }}" placeholder="{{ ('Ej.: ' ~ c.ejemplo) if c.ejemplo else '' }}">
     {% else %}
-    <input id="{{ id }}" type="text" name="{{ id }}" value="{{ valor or '' }}" maxlength="{{ c.maximo or 300 }}" placeholder="{{ c.ejemplo }}">
+    <input id="{{ id }}" type="text" name="{{ id }}" value="{{ valor or '' }}" maxlength="{{ c.maximo or 300 }}" placeholder="{{ ('Ej.: ' ~ c.ejemplo) if c.ejemplo else '' }}">
     {% endif %}
     {% if c.ayuda %}<small>{{ c.ayuda }}</small>{% endif %}
 </label>
@@ -283,7 +283,7 @@
             fuente: !!valor('fuente_url') || hayEnlace,
             limite: !!valor('fecha_limite'),
             verificado: !!valor('verificado_en') || (document.querySelector('[name=verificado_hoy]') || {}).checked,
-            contenido: quill.getText().trim().length >= 80 || document.querySelectorAll('textarea[name^=d_]').length > 0
+            contenido: quill.getText().trim().length >= 80 || Array.prototype.some.call(document.querySelectorAll('textarea[name^=d_]'), function (t) { return t.value.trim().length >= 20; })
         };
         document.querySelectorAll('#checklist [data-check]').forEach(function (li) {
             li.classList.toggle('ok', !!estado[li.getAttribute('data-check')]);
