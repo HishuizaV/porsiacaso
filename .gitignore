@@ -1,13 +1,33 @@
+# --- Entorno de Python ---
 venv/
 .venv/
 env/
 __pycache__/
 *.pyc
-instance/
-*.db
-*.sqlite3
-static/uploads/
-.env
-.vscode/respaldos/
 .pytest_cache/
+instance/
+
+# --- Secretos y configuración local ---
+.env
+.env.*
+!.env.example
+
+# --- Base de datos (contiene datos reales) ---
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+*.sqlite3
+respaldos/
+
+# --- Archivos subidos por usuarios y registros ---
+static/uploads/
 logs/
+*.log
+
+# --- Editores y sistema operativo ---
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
+.DS_Store
