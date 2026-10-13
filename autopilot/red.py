@@ -236,7 +236,7 @@ class Descargador:
     def comprobar_enlace(self, url):
         """(ok, estado, detalle). No descarga el cuerpo completo: HEAD y, si no se admite, GET corto."""
         try:
-            r = self._pedir(url, None, 512 * 1024, aceptar_error=True, metodo="HEAD", reintentos=1)
+            r = self._pedir(url, None, 0, aceptar_error=True, metodo="HEAD", reintentos=1, leer=False)
             if r.estado in (403, 405, 501):
                 r = self._pedir(url, None, 0, aceptar_error=True, reintentos=1, leer=False)
             return r.estado < 400, r.estado, r.url

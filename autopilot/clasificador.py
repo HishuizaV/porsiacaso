@@ -49,8 +49,13 @@ def detectar_tipo(titulo, texto, tipo_fuente, vacantes=None):
     return tipo
 
 
+DOCUMENTO_ADMINISTRATIVO = r"^(acta|circular|convenio|fe de erratas|comunicado|resultados?|lista de|resolucion|" \
+                           r"informe|oficio|memorando|ordenanza|acuerdo de concejo)\b"
+
+
 def parece_no_oportunidad(titulo, resumen=""):
-    return bool(re.search(NO_OPORTUNIDAD, normalizar(titulo) + " " + normalizar(resumen)))
+    t = normalizar(titulo)
+    return bool(re.search(NO_OPORTUNIDAD, t + " " + normalizar(resumen)) or re.search(DOCUMENTO_ADMINISTRATIVO, t))
 
 
 def relevancia(datos, tipo, enlaces, hoy, titulo="", resumen=""):
@@ -70,7 +75,11 @@ def relevancia(datos, tipo, enlaces, hoy, titulo="", resumen=""):
         motivos.append("Incluye requisitos o pasos.")
     if parece_no_oportunidad(titulo, resumen):
         puntos -= 60
-        motivos.append("Parece una nota, testimonio o resultado, no una oportunidad abierta.")
+        motivos.append("Parece una nota, acta, resultado o documento administrativo, no una oportunidad abierta.")
+    tiene_accion = (fl is not None and fl.util) or any(t in ("postular", "bases", "inscripcion") for t, _e, _u in enlaces)
+    if tipo in ("empleo", "convocatoria", "beca", "educativa", "curso") and not tiene_accion:
+        puntos -= 40
+        motivos.append("No tiene fecha de cierre ni enlace de postulación o bases: no parece una convocatoria abierta.")
     return max(0, min(100, puntos)), motivos
 
 

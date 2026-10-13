@@ -31,7 +31,7 @@ INSTRUCCIONES = (
 
 
 class ClienteIA:
-    def __init__(self, modelo="qwen3:1.7b", url=URL_OLLAMA, timeout=90.0, transporte=None):
+    def __init__(self, modelo="llama3.2:3b", url=URL_OLLAMA, timeout=90.0, transporte=None):
         self.modelo, self.url = modelo, url.rstrip("/")
         self.cliente = httpx.Client(timeout=timeout, transport=transporte)
         self.llamadas, self.segundos, self.errores = 0, 0.0, 0

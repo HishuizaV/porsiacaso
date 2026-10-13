@@ -157,7 +157,7 @@ def autopilot_ajustes():
         "autopilot_tipos_auto": ",".join(t for t in f.getlist("tipos_auto")
                                          if t in TIPOS and t not in calidad.NUNCA_AUTOPUBLICAR),
         "autopilot_ia": "1" if f.get("ia") else "0",
-        "autopilot_ia_modelo": (f.get("ia_modelo") or "qwen3:1.7b").strip()[:60],
+        "autopilot_ia_modelo": (f.get("ia_modelo") or "llama3.2:3b").strip()[:60],
         "autopilot_politica": json.dumps(politica, ensure_ascii=False),
     }
     ajustes.guardar(valores)

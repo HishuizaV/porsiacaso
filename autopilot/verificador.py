@@ -24,10 +24,23 @@ def verificar_enlaces(enlaces, descargador, limite=6):
     return salida
 
 
-def verificar_fechas(datos, hoy):
+DIAS_ANTIGUEDAD = 60
+TIPOS_CON_CIERRE = ("empleo", "convocatoria", "beca", "educativa")
+
+
+def verificar_fechas(datos, hoy, tipo=None, fecha_fuente=None):
     """Lista de (gravedad, mensaje). gravedad: bloqueo | revision | aviso."""
     problemas = []
     fl, fi = datos.get("fecha_limite"), datos.get("fecha_inicio")
+    fp = datos.get("fecha_publicacion")
+    publicada = fp.valor if fp is not None and fp.util else fecha_fuente
+    sin_cierre = fl is None or not fl.valor
+    if sin_cierre and publicada and (hoy - publicada).days > DIAS_ANTIGUEDAD:
+        if tipo in TIPOS_CON_CIERRE:
+            problemas.append(("bloqueo", f"Publicada el {publicada:%d/%m/%Y} (hace más de {DIAS_ANTIGUEDAD} días) y sin "
+                                         "fecha de cierre visible: probablemente ya no está vigente."))
+        else:
+            problemas.append(("revision", f"Publicada el {publicada:%d/%m/%Y} y sin fecha de cierre: confirma que sigue abierta."))
     if fl is not None and fl.valor:
         if fl.valor < hoy:
             problemas.append(("bloqueo", f"La convocatoria venció el {fl.valor:%d/%m/%Y}."))

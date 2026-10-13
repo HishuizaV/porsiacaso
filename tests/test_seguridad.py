@@ -124,3 +124,28 @@ def test_ads_txt_configurable(app, client):
 def test_sin_enlaces_falsos_de_redes(client):
     html = client.get("/").get_data(as_text=True)
     assert 'href="#"' not in html
+
+
+# ---------- Límites persistentes y dependencias locales ----------
+def test_buscador_tiene_limite_de_peticiones(client):
+    codigos = [client.get(f"/buscar?q=dni{i}").status_code for i in range(35)]
+    assert codigos.count(429) >= 1 and codigos[0] == 200
+    assert client.get("/buscar").status_code == 200   # la página sin búsqueda no cuenta
+
+
+def test_bloqueo_de_login_persiste_entre_procesos(app, client):
+    from app import crear_app
+    for _ in range(5):
+        entrar(client, clave="mala")
+    otra = crear_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": app.config["SQLALCHEMY_DATABASE_URI"],
+                      "SECRET_KEY": "otra", "UPLOAD_FOLDER": app.config["UPLOAD_FOLDER"]})
+    c2 = otra.test_client()   # «otro proceso» con la misma base: sigue bloqueado
+    entrar(c2)
+    assert c2.get("/admin/").status_code == 302
+
+
+def test_quill_se_sirve_localmente_con_integridad(admin_client):
+    html = admin_client.get("/admin/nueva/noticia").get_data(as_text=True)
+    assert "cdn.jsdelivr.net" not in html and "/static/vendor/quill-1.3.7/quill.min.js" in html
+    assert 'integrity="sha384-' in html
+    assert admin_client.get("/static/vendor/quill-1.3.7/quill.min.js").status_code == 200

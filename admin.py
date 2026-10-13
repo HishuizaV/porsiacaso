@@ -1,4 +1,4 @@
-import time
+import seguridad
 
 from flask import (Blueprint, render_template, request, redirect,
                    url_for, flash, abort, current_app, session)
@@ -11,8 +11,8 @@ from utils import slugify, limpiar_html, contenido_vacio
 
 admin = Blueprint("admin", __name__, url_prefix="/admin")
 
-# Límite de intentos de login: 5 fallos => bloqueo de 10 minutos
-INTENTOS = {}
+# Límite de intentos de login: 5 fallos en una ventana de 10 minutos => bloqueo hasta que termine.
+# Se guarda en la base de datos (vale para varios procesos y sobrevive a reinicios).
 MAX_INTENTOS = 5
 BLOQUEO_SEG = 600
 
@@ -77,24 +77,18 @@ def login():
     if current_user.is_authenticated:
         return redirect(url_for("admin.panel"))
     if request.method == "POST":
-        email = request.form.get("email", "").strip().lower()
+        email = request.form.get("email", "").strip().lower()[:120]
         clave = f"{request.remote_addr}|{email}"
-        intentos, bloqueado_hasta = INTENTOS.get(clave, [0, 0])
-
-        if bloqueado_hasta > time.time():
+        if seguridad.fallos("login", clave, BLOQUEO_SEG) >= MAX_INTENTOS:
             flash("Demasiados intentos fallidos. Espera 10 minutos.", "error")
         else:
             u = Usuario.query.filter_by(email=email).first()
             if u and u.activo and not u.es_servicio and u.check_password(request.form.get("password", "")):
-                INTENTOS.pop(clave, None)
+                seguridad.borrar_contador("login", clave)
                 session.clear()   # sesión nueva al entrar (evita fijación de sesión)
                 login_user(u)
                 return redirect(url_for("admin.panel"))
-            intentos += 1
-            if intentos >= MAX_INTENTOS:
-                INTENTOS[clave] = [0, time.time() + BLOQUEO_SEG]
-            else:
-                INTENTOS[clave] = [intentos, 0]
+            seguridad.registrar_fallo("login", clave, BLOQUEO_SEG)
             flash("Correo o contraseña incorrectos.", "error")
     return render_template("admin/login.html")
 

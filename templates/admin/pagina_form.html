@@ -1,7 +1,7 @@
 {% extends "admin/base_admin.html" %}
 {% block title %}{{ 'Nueva página' if nueva else 'Editar página' }}{% endblock %}
 {% block head %}
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/quill-1.3.7/quill.snow.css') }}" integrity="sha384-cPa8kzsYWhqpAfWOLWYIw3V0BhPi/m3lrd8tBTPxr2NrYCHRVZ7xy1cEoRGOM/03">
 {% endblock %}
 {% block content %}
 <h1>{{ 'Nueva página' if nueva else 'Editar: ' ~ p.titulo }}</h1>
@@ -23,7 +23,7 @@
 </form>
 {% endblock %}
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
+<script src="{{ url_for('static', filename='vendor/quill-1.3.7/quill.min.js') }}" integrity="sha384-QUJ+ckWz1M+a7w0UfG1sEn4pPrbQwSxGm/1TIPyioqXBrwuT9l4f9gdHWLDLbVWI"></script>
 <script>
     var quill = new Quill('#editor', { theme: 'snow', modules: { toolbar: [
         [{ header: [2, 3, false] }], ['bold', 'italic', 'underline'],

@@ -221,10 +221,14 @@ def clasificar_enlaces(enlaces, url_pagina, tipo_pagina="convocatoria"):
     for texto, url in enlaces:
         if url in vistos or url.split("#")[0] == url_pagina.split("#")[0]:
             continue
+        ya = {t for t, _e, _u in salida}
         es_pdf = bool(re.search(r"\.pdf(\?|$)", url, re.I))
         ruta = url.rsplit("/", 1)[-1].lower()
         for tipo, patron in REGLAS_ENLACE:
             if patron.search(texto) or (es_pdf and tipo != "postular" and patron.search(ruta)):
+                if (tipo != "anexo" and tipo in ya) or (tipo == "anexo" and
+                                                         sum(1 for t, _e, _u in salida if t == "anexo") >= 4):
+                    break
                 etiqueta = None
                 if tipo == "anexo":
                     n = sum(1 for x in salida if x[0] == "anexo") + 1
@@ -261,6 +265,7 @@ def extraer(tipo, titulo, texto, origen, hoy, paginas_pdf=None, url_pdf=None):
         return Dato()
 
     datos["descripcion"] = _descripcion(titulo, texto, origen)
+    datos["fecha_publicacion"] = _fecha_publicacion(texto, origen, hoy)
     datos["fecha_limite"] = primero(lambda t, o: fecha_limite(t, o, hoy))
     datos["codigo"] = primero(lambda t, o: _regex(RE_CODIGO, t, o, grupo=1,
                                                   limpiar=lambda v: re.sub(r"\s+", " ", v).strip().upper()))
@@ -296,6 +301,15 @@ def extraer(tipo, titulo, texto, origen, hoy, paginas_pdf=None, url_pdf=None):
         datos["pasos"] = primero(lambda t, o: _lista(t, o, ["pasos", "procedimiento", "como hacerlo", "como realizar"]))
         datos["costo_texto"] = primero(lambda t, o: _regex(re.compile(r"((?:costo|tasa|pago)[^\n]{0,15}S/\.?\s*[\d.,]+)", re.I), t, o))
     return datos
+
+
+def _fecha_publicacion(texto, origen, hoy):
+    """Fecha que la entidad muestra al inicio de la página (p. ej. gob.pe: «1 de setiembre de 2025»)."""
+    cabecera = "\n".join(texto.split("\n")[:12])
+    for f, a, b in fechas_en(cabecera, None):
+        if f <= hoy:
+            return confirmado(f, cabecera[max(0, a - 40): b + 20], origen)
+    return Dato()
 
 
 def _descripcion(titulo, texto, origen):

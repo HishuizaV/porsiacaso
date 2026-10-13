@@ -142,7 +142,10 @@ def analizar(h, descargador, cfg, ia=None):
 
     enlaces = extraccion.clasificar_enlaces(enlaces_pagina, h.url, TIPO_PAGINA.get(tipo, "oficial"))
     verificados = verificador.verificar_enlaces(enlaces, descargador)
-    problemas = verificador.verificar_fechas(datos, hoy_)
+    problemas = verificador.verificar_fechas(datos, hoy_, tipo, h.fecha_fuente.date() if h.fecha_fuente else None)
+    if paginas and not any(t.strip() for _p, t in paginas):
+        problemas.append(("revision", "Las bases son un PDF escaneado (imagen): revisa a mano el cronograma y la "
+                                      "fecha límite."))
     relev, motivos_rel = clasificador.relevancia(datos, tipo, enlaces, hoy_, titulo, h.resumen_fuente or "")
     borrador = redactor.componer(tipo, datos, titulo, institucion, zona,
                                  [(t, e, u) for t, e, u, ok, _d in verificados if ok])

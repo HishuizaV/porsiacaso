@@ -12,15 +12,15 @@ from flask import Blueprint, request, jsonify, url_for, abort
 import ajustes
 from consultas import listar, buscar_zona, zonas_con_contenido, terminos
 from models import Ubicacion
-from seguridad import Limitador, exento_csrf, ip_cliente
+from seguridad import exento_csrf, ip_cliente, permitir_persistente
 from tipos import TIPOS
 from utils import normalizar
 from web import url_publicacion
 
 api = Blueprint("api", __name__, url_prefix="/api")
 
-LIMITE_IP = Limitador(20, 60)       # 20 mensajes por minuto por visitante
-LIMITE_GLOBAL = Limitador(600, 60)  # protección general
+LIMITE_IP = 20        # mensajes por minuto por visitante
+LIMITE_GLOBAL = 600   # mensajes por minuto en total
 MAX_LARGO = 300
 
 # Palabra clave (normalizada) -> tipos de publicación
@@ -184,7 +184,8 @@ def asistente():
         abort(403)
     if (request.content_length or 0) > 4096 or not request.is_json:
         abort(400)
-    if not LIMITE_GLOBAL.permitir("global") or not LIMITE_IP.permitir(ip_cliente()):
+    if not permitir_persistente("asistente", "*", LIMITE_GLOBAL) or \
+            not permitir_persistente("asistente", ip_cliente(), LIMITE_IP):
         return jsonify({"respuesta": "Estás enviando muchos mensajes. Espera un minuto.",
                         "error": "limite"}), 429
     datos = request.get_json(silent=True) or {}

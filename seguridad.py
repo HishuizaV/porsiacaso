@@ -59,3 +59,52 @@ class Limitador:
 
 def ip_cliente():
     return request.remote_addr or "?"
+
+
+# ---------- Límites persistentes (en la base de datos) ----------
+# Ventana fija: válidos entre varios procesos o servidores y tras reinicios. Se usan para el
+# buscador, el login y el asistente.
+def _contador(nombre, clave, segundos, sumar):
+    import random
+    from sqlalchemy import text
+    from extensions import db
+    ventana = int(time.time() // segundos)
+    k = f"{nombre}:{clave}"[:150]
+    if sumar:
+        r = db.session.execute(text(
+            "UPDATE limite_contador SET cuenta = CASE WHEN ventana = :v THEN cuenta + 1 ELSE 1 END, ventana = :v "
+            "WHERE clave = :k"), {"v": ventana, "k": k})
+        if r.rowcount == 0:
+            db.session.execute(text("INSERT INTO limite_contador (clave, ventana, cuenta) VALUES (:k, :v, 1)"),
+                               {"k": k, "v": ventana})
+        if random.random() < 0.01:   # limpieza ocasional de ventanas viejas
+            db.session.execute(text("DELETE FROM limite_contador WHERE ventana < :v"), {"v": ventana - 100})
+        db.session.commit()
+    fila = db.session.execute(text("SELECT ventana, cuenta FROM limite_contador WHERE clave = :k"), {"k": k}).first()
+    return fila[1] if fila and fila[0] == ventana else 0
+
+
+def permitir_persistente(nombre, clave, maximo, segundos=60):
+    """True si la petición entra en el límite (y la cuenta)."""
+    from sqlalchemy.exc import SQLAlchemyError
+    from extensions import db
+    try:
+        return _contador(nombre, clave, segundos, sumar=True) <= maximo
+    except SQLAlchemyError:
+        db.session.rollback()
+        return True   # si la base falla, no se bloquea a los visitantes
+
+
+def fallos(nombre, clave, segundos):
+    return _contador(nombre, clave, segundos, sumar=False)
+
+
+def registrar_fallo(nombre, clave, segundos):
+    return _contador(nombre, clave, segundos, sumar=True)
+
+
+def borrar_contador(nombre, clave):
+    from sqlalchemy import text
+    from extensions import db
+    db.session.execute(text("DELETE FROM limite_contador WHERE clave = :k"), {"k": f"{nombre}:{clave}"[:150]})
+    db.session.commit()

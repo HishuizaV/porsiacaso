@@ -45,7 +45,7 @@ def configuracion():
         "espaciado": entero("autopilot_espaciado", 30, 0, 240),
         "concurrencia": entero("autopilot_concurrencia", 2, 1, 4),
         "ia": ajustes.obtener("autopilot_ia") == "1",
-        "ia_modelo": ajustes.obtener("autopilot_ia_modelo") or "qwen3:1.7b",
+        "ia_modelo": ajustes.obtener("autopilot_ia_modelo") or "llama3.2:3b",
         "politica": politica,
         "politica_completa": all(politica.get(k) for k, _ in REQUISITOS_POLITICA),
     }
@@ -94,7 +94,10 @@ def evaluar(tipo, borrador, datos, enlaces_verificados, problemas_fechas, sospec
               any(e[0] == info["cta"] and e[3] for e in enlaces_verificados))
     check("Todos los botones mostrados responden", all(e[3] is not False for e in enlaces_verificados))
     check("Sin datos contradictorios", not any(d.estado == "contradictorio" for d in datos.values()))
-    check("Sin datos inferidos por IA", not any(d.estado == "inferido" for d in datos.values()))
+    # Lo que aporta la IA (aunque el texto aparezca en la fuente) siempre lo revisa una persona:
+    # la IA eligió qué fragmento corresponde a cada dato.
+    check("Sin datos aportados por IA", not any(d.estado == "inferido" or (d.metodo or "").startswith("ia")
+                                                for d in datos.values()))
     check("Sin instrucciones sospechosas en la fuente", not sospechas)
     check("Es una oportunidad o información útil (no testimonio ni nota)", relev >= 30, "bloqueo")
     largo = len(borrador["contenido"]) + sum(len(str(v)) for v in borrador["detalle"].values())

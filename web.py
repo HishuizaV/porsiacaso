@@ -5,6 +5,7 @@ from flask_login import current_user
 from sqlalchemy import or_
 
 import ajustes
+import seguridad
 import seo
 from consultas import (publicados, listar, filtro_vigentes, zonas_con_contenido,
                        fichas_por_vencer, conteo_por_tipo, instituciones_con_contenido)
@@ -15,6 +16,7 @@ from tipos import (TIPOS, TIPOS_ARTICULO, ORDEN, SECTORES, MODALIDADES, NIVELES_
 
 web = Blueprint("web", __name__)
 
+LIMITE_BUSCAR = 30   # búsquedas por minuto por visitante
 VIGENCIAS_FILTRO = [("vigentes", "Vigentes"), ("todas", "Todas"), ("vencidas", "Vencidas o cerradas")]
 ORDENES = [("recientes", "Más recientes"), ("cierre", "Cierran pronto"), ("relevancia", "Relevancia")]
 
@@ -301,6 +303,8 @@ def buscar():
     tipo = request.args.get("tipo", "")
     tipo = tipo if tipo in TIPOS else None
     pag = None
+    if q and not seguridad.permitir_persistente("buscar", seguridad.ip_cliente(), LIMITE_BUSCAR):
+        abort(429)
     if q:
         orden = "relevancia"
         pag = paginar(listar(tipo=tipo, q=q, vigencia="todas", orden=orden))

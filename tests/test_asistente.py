@@ -66,7 +66,6 @@ def test_origen_cruzado_rechazado(client):
 
 
 def test_limite_de_consultas(client):
-    asistente.LIMITE_IP.limpiar()
     codigos = [preguntar(client, "hola").status_code for _ in range(22)]
     assert codigos.count(429) >= 1
 

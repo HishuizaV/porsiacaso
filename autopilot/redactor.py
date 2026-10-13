@@ -25,7 +25,7 @@ def _lista_html(texto):
 
 def limpiar_titulo_fuente(t):
     t = re.sub(r"^\s*(convocatoria|aviso|comunicado)\s*[|:–-]\s*", "", t or "", flags=re.I)
-    t = re.sub(r"^\s*curso\s*(remoto|virtual)?\s*:\s*", "", t, flags=re.I)
+    t = re.sub(r"^\s*(resultados?|convocatoria)\s*[|:]\s*", "", t, flags=re.I)
     return re.sub(r"\s+", " ", t).strip(" .|-–")
 
 
@@ -50,6 +50,9 @@ def titulo_seo(tipo, datos, titulo_fuente, inst, lugar):
         return recortar(f"{base} – {corto}" if corto and normalizar(corto) not in normalizar(base) else base)
     if tipo == "curso":
         gratis = _v(datos, "costo") == "gratuito"
+        nb = normalizar(base)
+        if nb.startswith(("curso", "taller", "diplomado", "programa")):
+            return recortar(base + (" (gratuito)" if gratis and "gratuit" not in nb else ""))
         return recortar(("Curso gratuito: " if gratis else "Curso: ") + base)
     if tipo == "tramite" and inst:
         return recortar(f"{base}: requisitos y pasos en {corto}")

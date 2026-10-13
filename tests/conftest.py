@@ -48,10 +48,6 @@ def app(tmp_path):
             db.session.add(u)
         db.session.add(Pagina(slug="contacto", titulo="Contacto", contenido="<p>Escríbenos.</p>"))
         db.session.commit()
-    asistente.LIMITE_IP.limpiar()
-    asistente.LIMITE_GLOBAL.limpiar()
-    import admin as modulo_admin
-    modulo_admin.INTENTOS.clear()
     yield app
 
 

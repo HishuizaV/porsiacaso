@@ -32,7 +32,7 @@ DEFINICION = {
     "autopilot_espaciado": ("30", "Minutos entre publicaciones automáticas programadas"),
     "autopilot_concurrencia": ("2", "Descargas simultáneas (1–4)"),
     "autopilot_ia": ("0", "1 = usar Ollama local como apoyo"),
-    "autopilot_ia_modelo": ("qwen3:1.7b", "Modelo local de Ollama"),
+    "autopilot_ia_modelo": ("llama3.2:3b", "Modelo local de Ollama (medido: más preciso y rápido que qwen3:1.7b)"),
     "autopilot_politica": ("", "Confirmaciones del administrador para autopublicar (JSON)"),
 }
 CLAVES_SITIO = [k for k in DEFINICION if not k.startswith("autopilot_")]

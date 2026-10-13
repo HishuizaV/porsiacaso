@@ -125,7 +125,7 @@ def test_adaptador_json_y_curso_gratuito(app, web):
         assert procesar_todo(desc)["Curso gratuito de Excel básico"] == "revision"
         c = Articulo.query.filter_by(tipo="curso").one()
         assert c.detalle_curso.costo == "gratuito" and c.detalle_curso.modalidad == "virtual"
-        assert c.titulo.startswith("Curso gratuito:")
+        assert "gratuito" in c.titulo.lower() and not c.titulo.lower().startswith("curso gratuito: curso")
         assert c.detalle_curso.fecha_inicio.month == 11
 
 
@@ -282,3 +282,63 @@ def test_enlaces_rotos_no_se_publican(app, web):
         emp = Articulo.query.filter_by(tipo="empleo").one()
         assert all("postula.muniprueba" not in (e.url or "") for e in emp.enlaces)
         assert emp.estado == "revision"
+
+
+# ---------- Regresiones detectadas en la jornada real (13/10/2026) ----------
+def test_pdf_grande_no_se_reporta_como_roto(web):
+    web.agregar("https://cdn.www.gob.pe/grande.pdf", "application/pdf", b"%PDF-1.4" + b"0" * 2_000_000)
+    ok, estado, _ = web.descargador().comprobar_enlace("https://cdn.www.gob.pe/grande.pdf")
+    assert ok and estado == 200
+
+
+def test_pagina_antigua_sin_cierre_se_descarta(app, web):
+    from ap_web import pagina_gobpe
+    url = f"{BASE}/informes-publicaciones/7777-convocatoria-cas-n-002-2025-mpp"
+    web.agregar(url, "text/html", pagina_gobpe("Convocatoria CAS N° 002-2025-MPP", "Municipalidad de Prueba",
+                "<p>Concurso público</p><p>1 de setiembre de 2025</p><p>Proceso para cubrir 50 plazas en diversas "
+                "dependencias de la municipalidad.</p><p><a href='https://cdn.www.gob.pe/x/7777-base.pdf'>Descargar</a></p>"))
+    web.agregar("https://cdn.www.gob.pe/x/7777-base.pdf", "application/pdf", pdf_con_texto([""]))
+    with app.app_context():
+        f = fuente_gobpe()
+        h = Hallazgo(fuente_id=f.id, url=url, url_normalizada=dedup.normalizar_url(url), titulo="CAS 002-2025")
+        db.session.add(h)
+        db.session.commit()
+        assert flujo.procesar_hallazgo(h, web.descargador(), calidad.configuracion()) == "rechazado"
+        assert "probablemente ya no está vigente" in h.motivo
+
+
+def test_bases_escaneadas_se_advierten(app, web):
+    url = f"{BASE}/informes-publicaciones/9001-convocatoria-cas-n-003-2026-mpp"
+    web.agregar("https://cdn.www.gob.pe/uploads/document/file/1/9001-base-de-la-convocatoria-cas-003-2026-mpp.pdf?v=1",
+                "application/pdf", pdf_con_texto([""]))   # PDF sin texto (imagen escaneada)
+    with app.app_context():
+        f = fuente_gobpe()
+        h = Hallazgo(fuente_id=f.id, url=url, url_normalizada=dedup.normalizar_url(url), titulo="CAS 003")
+        db.session.add(h)
+        db.session.commit()
+        r = flujo.analizar(h, web.descargador(), calidad.configuracion())
+        assert any("PDF escaneado" in m for m in r["motivos"]) or any("escaneado" in t for t, ok, g in r["checklist"])
+
+
+def test_documentos_administrativos_y_notas_no_son_oportunidades():
+    from autopilot.clasificador import parece_no_oportunidad
+    for t in ("ACTA N° 14-2026-GR.LAMB-COM-OXI del Proceso de selección", "CIRCULAR Nº 003-2026-GR.LAMB",
+              "CONVENIO DE INVERSION N° 000004-2026-GR.LAMB/GR", "RESULTADOS | Curso: Gestión de APP"):
+        assert parece_no_oportunidad(t), t
+    assert not parece_no_oportunidad("Convocatoria CAS N° 003-2026-MPP")
+
+
+def test_nota_institucional_sin_accion_se_descarta():
+    from datetime import date
+    from autopilot.clasificador import relevancia
+    rel, motivos = relevancia({}, "beca", [("convocatoria", None, "https://x.gob.pe")], date(2026, 10, 13),
+                              "Pronabec y Derrama Magisterial coordinan acciones para impulsar becas")
+    assert rel < 30 and any("no parece una convocatoria abierta" in m for m in motivos)
+
+
+def test_un_solo_boton_por_tipo():
+    enlaces = [("Inscríbete aquí", "https://a.gob.pe/1"), ("Inscríbete aquí", "https://a.gob.pe/2"),
+               *[("Anexo", f"https://a.gob.pe/anexo{i}.pdf") for i in range(7)]]
+    cls = extraccion.clasificar_enlaces(enlaces, "https://a.gob.pe/pagina")
+    tipos = [t for t, _e, _u in cls]
+    assert tipos.count("postular") == 1 and tipos.count("anexo") == 4
