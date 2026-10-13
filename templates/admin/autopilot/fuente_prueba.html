@@ -1,0 +1,13 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Prueba de fuente{% endblock %}
+{% block content %}
+<h1>Prueba de lectura: {{ fu.nombre }}</h1>
+<p class="ayuda" style="margin-bottom:14px">No se guardó nada. Así vería el Autopilot el listado con la configuración actual.</p>
+{% if error %}<div class="flash error">No se pudo leer: {{ error }}</div>{% endif %}
+{% if items %}
+<div class="tabla-wrap"><table><thead><tr><th>Elemento</th><th>Identificador</th></tr></thead><tbody>
+{% for it in items %}<tr><td><strong>{{ it.titulo }}</strong><br><small><a href="{{ it.url }}" target="_blank" rel="noopener noreferrer">{{ it.url|truncate(100) }}</a></small></td><td>{{ it.id_externo or '—' }}</td></tr>{% endfor %}
+</tbody></table></div>
+{% elif not error %}<div class="caja"><p>El listado no tiene elementos que cumplan los filtros.</p></div>{% endif %}
+<p style="margin-top:14px"><a class="btn" href="{{ url_for('admin.autopilot_fuente_form', id=fu.id) }}">← Volver a la fuente</a></p>
+{% endblock %}

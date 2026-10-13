@@ -52,11 +52,14 @@ def crear_app(config=None):
     from admin import admin
     import admin_contenido  # noqa: F401  (registra rutas en el blueprint admin)
     import admin_sitio      # noqa: F401
+    import admin_autopilot  # noqa: F401
     from web import web
     from asistente import api
     app.register_blueprint(admin)
     app.register_blueprint(web)
     app.register_blueprint(api)
+    from autopilot.sincronizar import api_sync
+    app.register_blueprint(api_sync)
 
     registrar_plantillas(app)
     registrar_errores(app)

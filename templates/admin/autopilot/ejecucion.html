@@ -1,0 +1,23 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Informe de jornada #{{ ej.id }}{% endblock %}
+{% block content %}
+{% set c = ej.contadores %}{% set inf = ej.informe %}
+<h1>Informe de la jornada #{{ ej.id }}</h1>
+<p class="ayuda" style="margin-bottom:12px">{{ ej.origen }} · {{ ej.iniciada.strftime('%d/%m/%Y %H:%M') if ej.iniciada else 'no iniciada' }}{% if ej.finalizada %} → {{ ej.finalizada.strftime('%H:%M') }}{% endif %} · estado <strong>{{ ej.estado }}</strong>{% if inf.motivo_fin %} · {{ inf.motivo_fin }}{% endif %}</p>
+<div class="rejilla-cifras">
+    <div class="cifra"><strong>{{ c.get('fuentes_consultadas', 0) }}</strong><span>Fuentes consultadas</span></div>
+    <div class="cifra"><strong>{{ c.get('hallazgos_nuevos', 0) }}</strong><span>Hallazgos nuevos</span></div>
+    <div class="cifra"><strong>{{ c.get('duplicado', 0) + c.get('actualizacion', 0) }}</strong><span>Duplicados / cambios</span></div>
+    <div class="cifra"><strong>{{ inf.get('fichas', 0) }}</strong><span>Fichas creadas</span></div>
+    <div class="cifra"><strong>{{ c.get('autopublicado', 0) + c.get('programado', 0) }}</strong><span>Publicadas o programadas</span></div>
+    <div class="cifra"><strong>{{ c.get('revision', 0) }}</strong><span>Pendientes de revisión</span></div>
+    <div class="cifra"><strong>{{ c.get('rechazado', 0) }}</strong><span>Rechazadas</span></div>
+    <div class="cifra"><strong>{{ c.get('errores', 0) }}</strong><span>Errores</span></div>
+</div>
+<section class="caja"><h2>Tiempo</h2><p>{{ inf.get('minutos', ej.minutos_transcurridos) }} de {{ ej.duracion_max }} minutos · meta {{ ej.objetivo }} fichas · tareas pendientes al cierre: {{ inf.get('pendientes', '—') }}{% if c.get('recuperadas') %} · tareas recuperadas de una caída: {{ c.recuperadas }}{% endif %}</p>
+{% if c.get('vencidas_cerradas') or c.get('enlaces_rotos') %}<p>Mantenimiento: {{ c.get('vencidas_cerradas', 0) }} convocatoria(s) vencida(s) cerradas · {{ c.get('enlaces_rotos', 0) }} enlace(s) roto(s) detectados.</p>{% endif %}</section>
+{% if inf.get('recomendaciones') %}<section class="caja"><h2>Recomendaciones para la próxima jornada</h2><ul class="lista-simple">{% for r in inf.recomendaciones %}<li>{{ r }}</li>{% endfor %}</ul></section>{% endif %}
+{% if inf.get('fuentes_con_error') %}<section class="caja"><h2>Fuentes con error</h2><p>{{ inf.fuentes_con_error|join(', ') }}</p></section>{% endif %}
+{% if ej.error %}<section class="caja"><h2>Error</h2><pre class="ap-texto">{{ ej.error }}</pre></section>{% endif %}
+{% if fallidas %}<section class="caja"><h2>Tareas fallidas</h2><ul class="lista-simple">{% for t in fallidas %}<li>{{ t.tipo }} #{{ t.objetivo_id }}: {{ (t.ultimo_error or '')|truncate(200) }}</li>{% endfor %}</ul></section>{% endif %}
+{% endblock %}

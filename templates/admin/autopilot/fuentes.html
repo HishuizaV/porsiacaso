@@ -1,0 +1,29 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Fuentes{% endblock %}
+{% block content %}
+<div class="titulo-fila">
+    <div><h1>Fuentes del Autopilot</h1>
+        <p class="ayuda">Solo se consultan las fuentes <strong>activas</strong> y con <strong>permiso de extracción</strong>. Que una página sea pública no autoriza a copiarla: revisa sus condiciones antes de activarla.</p></div>
+    <a class="btn btn-primario" href="{{ url_for('admin.autopilot_fuente_form') }}">+ Nueva fuente</a>
+</div>
+{% if fuentes %}
+<div class="tabla-wrap"><table>
+    <thead><tr><th>Fuente</th><th>Tipo</th><th>Formato</th><th>Estado</th><th>Permisos</th><th>Última consulta</th><th></th></tr></thead>
+    <tbody>{% for f in fuentes %}<tr>
+        <td><strong>{{ f.nombre }}</strong><br><small>{{ f.institucion.nombre if f.institucion }}{% if f.ubicacion %} · {{ f.ubicacion.nombre }}{% endif %} · prioridad {{ f.prioridad }}</small>
+            {% if f.ultimo_error %}<br><small class="peligro">{{ f.ultimo_error.splitlines()[0]|truncate(90) }}</small>{% endif %}</td>
+        <td>{{ TIPOS_ADMIN[f.tipo_contenido].plural if f.tipo_contenido in TIPOS_ADMIN }}</td>
+        <td>{{ formatos.get(f.formato, f.formato) }}</td>
+        <td><span class="estado {{ {'activa':'publicado','pausada':'borrador','manual':'revision','error':'archivado'}[f.estado] }}">{{ estados.get(f.estado, f.estado) }}</span></td>
+        <td><small>{{ '✔ extracción' if f.permite_extraccion else '✖ sin extracción' }}<br>{{ '✔ autopublicación' if f.permite_autopublicacion else '✖ sin autopublicación' }}</small></td>
+        <td><small>{{ f.ultima_consulta.strftime('%d/%m %H:%M') if f.ultima_consulta else 'nunca' }}{% if f.ultima_novedad %}<br>novedad {{ f.ultima_novedad.strftime('%d/%m') }}{% endif %}</small></td>
+        <td class="acciones"><a href="{{ url_for('admin.autopilot_fuente_form', id=f.id) }}">Editar</a>
+            {% if f.formato in ('html', 'rss', 'json', 'pdf') %}
+            <form method="post" action="{{ url_for('admin.autopilot_fuente_probar', id=f.id) }}"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button class="link">Probar lectura</button></form>
+            {% endif %}</td>
+    </tr>{% endfor %}</tbody>
+</table></div>
+{% else %}
+<div class="caja"><p>No hay fuentes. Puedes cargar las fuentes iniciales investigadas con el comando <code>flask autopilot cargar-fuentes</code> (quedan en pausa) o crear una nueva.</p></div>
+{% endif %}
+{% endblock %}

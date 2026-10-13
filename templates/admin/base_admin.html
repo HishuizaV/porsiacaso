@@ -33,6 +33,15 @@
             <a href="{{ url_for('admin.publicaciones', tipo='guia') }}">Guías</a>
             <a href="{{ url_for('admin.publicaciones', tipo='noticia') }}">Noticias</a>
             <a href="{{ url_for('admin.publicaciones', estado='borrador') }}">Borradores</a>
+            {% if current_user.puede_publicar %}
+            <h4>Autopilot</h4>
+            {{ item('admin.autopilot', 'Panel del Autopilot') }}
+            {{ item('admin.autopilot_bandeja', 'Bandeja de revisión') }}
+            {% if current_user.es_admin %}{{ item('admin.autopilot_fuentes', 'Fuentes') }}{% endif %}
+            {{ item('admin.autopilot_hallazgos', 'Hallazgos y evidencias') }}
+            {{ item('admin.autopilot_actualizaciones', 'Actualizaciones') }}
+            {{ item('admin.autopilot_historial', 'Historial de jornadas') }}
+            {% endif %}
             <h4>Organización</h4>
             {{ item('admin.instituciones', 'Instituciones y empresas') }}
             {% if current_user.es_admin %}

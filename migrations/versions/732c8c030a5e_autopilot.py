@@ -235,6 +235,7 @@ def upgrade():
     with op.batch_alter_table('articulo', schema=None) as batch_op:
         batch_op.add_column(sa.Column('origen', sa.String(length=12), server_default='manual', nullable=False))
         batch_op.add_column(sa.Column('clave_externa', sa.String(length=80), nullable=True))
+        batch_op.add_column(sa.Column('sincronizado_en', sa.DateTime(), nullable=True))
         batch_op.add_column(sa.Column('editado_por_id', sa.Integer(), nullable=True))
         batch_op.add_column(sa.Column('verificado_por_id', sa.Integer(), nullable=True))
         batch_op.add_column(sa.Column('aprobado_por_id', sa.Integer(), nullable=True))
@@ -265,6 +266,7 @@ def downgrade():
         batch_op.drop_column('verificado_por_id')
         batch_op.drop_column('editado_por_id')
         batch_op.drop_column('clave_externa')
+        batch_op.drop_column('sincronizado_en')
         batch_op.drop_column('origen')
 
     with op.batch_alter_table('version_articulo', schema=None) as batch_op:

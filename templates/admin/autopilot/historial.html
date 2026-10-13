@@ -1,0 +1,15 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Historial de jornadas{% endblock %}
+{% block content %}
+<h1>Historial de jornadas</h1>
+{% if ejecuciones %}
+<div class="tabla-wrap"><table><thead><tr><th>#</th><th>Origen</th><th>Inicio</th><th>Estado</th><th>Duración</th><th>Fuentes</th><th>Nuevos</th><th>Fichas</th><th>Errores</th><th></th></tr></thead><tbody>
+{% for x in ejecuciones %}{% set c = x.contadores %}<tr>
+    <td>{{ x.id }}</td><td>{{ x.origen }}</td><td>{{ x.iniciada.strftime('%d/%m/%Y %H:%M') if x.iniciada else '—' }}</td>
+    <td>{{ x.estado }}</td><td>{{ x.minutos_transcurridos }} / {{ x.duracion_max }} min</td>
+    <td>{{ c.get('fuentes_consultadas', 0) }}</td><td>{{ c.get('hallazgos_nuevos', 0) }}</td>
+    <td>{{ x.informe.get('fichas', 0) }}</td><td>{{ c.get('errores', 0) }}</td>
+    <td><a href="{{ url_for('admin.autopilot_ejecucion', id=x.id) }}">Informe</a></td></tr>{% endfor %}
+</tbody></table></div>
+{% else %}<div class="caja"><p>Sin jornadas todavía.</p></div>{% endif %}
+{% endblock %}

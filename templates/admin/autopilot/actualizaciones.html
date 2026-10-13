@@ -1,0 +1,28 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Actualizaciones{% endblock %}
+{% block content %}
+<h1>Cambios detectados en las fuentes</h1>
+<p class="ayuda" style="margin-bottom:12px">Cuando una convocatoria cambia en su fuente, el Autopilot no sobrescribe la ficha: propone el cambio aquí. Todo cambio aplicado se puede revertir.</p>
+
+<section class="caja"><h2>Pendientes ({{ pendientes|length }})</h2>
+{% for v in pendientes %}
+<div class="flash aviso"><strong><a href="{{ url_for('admin.publicacion_form', id=v.articulo_id) }}">{{ v.articulo.titulo }}</a></strong> · {{ v.fecha.strftime('%d/%m/%Y %H:%M') }}
+    <pre class="ap-texto">{{ v.resumen_cambios }}</pre>
+    <form method="post" action="{{ url_for('admin.autopilot_version_accion', id=v.id) }}" class="acciones">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button class="btn btn-primario" name="accion" value="aplicar">Aplicar cambio</button>
+        <button class="btn" name="accion" value="rechazar">Descartar</button>
+    </form></div>
+{% else %}<p class="ayuda">No hay cambios pendientes.</p>{% endfor %}
+</section>
+
+<section class="caja"><h2>Historial reciente</h2>
+{% if recientes %}<div class="tabla-wrap"><table><thead><tr><th>Ficha</th><th>Cambio</th><th>Estado</th><th></th></tr></thead><tbody>
+{% for v in recientes %}<tr><td>{{ v.articulo.titulo|truncate(60) }}</td><td><small>{{ v.resumen_cambios|truncate(140) }}</small></td><td>{{ v.estado }}{% if v.usuario %}<br><small>{{ v.usuario.nombre }}</small>{% endif %}</td>
+<td>{% if v.estado == 'aplicada' %}<form method="post" action="{{ url_for('admin.autopilot_version_accion', id=v.id) }}" data-confirmar="¿Revertir este cambio?"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button class="link" name="accion" value="revertir">Revertir</button></form>{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>{% else %}<p class="ayuda">Sin historial.</p>{% endif %}
+</section>
+
+{% if verificaciones %}<section class="caja"><h2>Enlaces que fallaron en la última comprobación</h2>
+<ul class="lista-simple">{% for x in verificaciones %}<li>{{ x.fecha.strftime('%d/%m %H:%M') }} · <a href="{{ url_for('admin.publicacion_form', id=x.articulo_id) }}">ficha #{{ x.articulo_id }}</a>: {{ x.detalle }}</li>{% endfor %}</ul></section>{% endif %}
+{% endblock %}

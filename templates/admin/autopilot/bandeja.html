@@ -1,0 +1,80 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Bandeja de revisión{% endblock %}
+{% block content %}
+<div class="titulo-fila">
+    <div><h1>Bandeja de revisión</h1>
+        <p class="ayuda">Fichas pendientes de aprobación. Revisa la evidencia, corrige lo necesario y aprueba, programa o rechaza. Nada de esto se ve en el sitio hasta que lo apruebes.</p></div>
+    <div class="acciones">
+        <a class="btn {{ 'btn-oscuro' if not origen }}" href="{{ url_for('admin.autopilot_bandeja') }}">Todas</a>
+        <a class="btn {{ 'btn-oscuro' if origen == 'autopilot' }}" href="{{ url_for('admin.autopilot_bandeja', origen='autopilot') }}">Del Autopilot</a>
+        <a class="btn {{ 'btn-oscuro' if origen == 'manual' }}" href="{{ url_for('admin.autopilot_bandeja', origen='manual') }}">De editores</a>
+    </div>
+</div>
+
+{% for x in fichas %}{% set a = x.a %}{% set h = x.h %}{% set dec = x.dec %}
+<article class="caja ap-ficha" id="ficha-{{ a.id }}">
+    <div class="titulo-fila" style="margin-bottom:8px">
+        <div>
+            <span class="estado revision">{{ a.info.nombre }}</span>
+            <span class="estado {{ 'programada' if a.origen == 'autopilot' else 'borrador' }}">{{ 'Autopilot' if a.origen == 'autopilot' else 'Editor: ' ~ a.autor.nombre }}</span>
+            {% if a.vencida %}<span class="estado archivado">Vencida</span>{% elif a.dias_restantes is not none %}<span class="estado borrador">Cierra en {{ a.dias_restantes }} día(s)</span>{% endif %}
+            <h2 style="margin-top:6px">{{ a.titulo }}</h2>
+            <p class="ayuda">{{ a.institucion.nombre if a.institucion }}{% if a.institucion and not a.institucion.verificada %} <span class="estado revision">institución sin verificar</span>{% endif %}{% if a.ubicacion %} · 📍 {{ a.ubicacion.nombre }}{% endif %} · creada {{ a.creado.strftime('%d/%m/%Y %H:%M') }}</p>
+        </div>
+        <div class="acciones">
+            <a class="btn" href="{{ url_for('admin.vista_previa', id=a.id) }}" target="_blank" rel="noopener">Vista previa ↗</a>
+            <a class="btn" href="{{ url_for('admin.publicacion_form', id=a.id) }}">Editar todo</a>
+        </div>
+    </div>
+
+    <div class="ap-columnas">
+        <div>
+            <p><strong>Resumen:</strong> {{ a.resumen or '—' }}</p>
+            {% if x.faltan %}<div class="flash error"><strong>Faltan datos:</strong> {{ x.faltan|join(', ') }}</div>{% endif %}
+            {% if dec and dec.motivo %}<div class="flash aviso"><strong>Por qué necesita revisión:</strong> {{ dec.motivo }}</div>{% endif %}
+            <h3>Botones que verá el visitante</h3>
+            {% if a.enlaces %}<ul class="lista-simple">{% for e in a.enlaces %}<li>{{ e.texto }} → <a href="{{ url_enlace(e) }}" target="_blank" rel="noopener noreferrer">{{ (url_enlace(e) or '')|replace('https://','')|truncate(70) }}</a></li>{% endfor %}</ul>
+            {% else %}<p class="ayuda">Sin botones (no se encontraron enlaces oficiales que funcionen).</p>{% endif %}
+            {% if h %}
+            <h3>Evidencia</h3>
+            <p class="ayuda">Fuente: <a href="{{ h.url }}" target="_blank" rel="noopener noreferrer">{{ h.fuente.nombre }}</a> · consultada {{ h.ultima_consulta.strftime('%d/%m/%Y %H:%M') if h.ultima_consulta }} · <a href="{{ url_for('admin.autopilot_hallazgo', id=h.id) }}">ver todas las evidencias</a></p>
+            <table class="ap-evidencia"><tbody>
+            {% for ev in h.evidencias if ev.estado != 'no_encontrado' and ev.campo not in ('descripcion',) %}
+                <tr><th>{{ ev.campo|replace('_', ' ') }}</th><td>{{ (ev.valor or '')|truncate(90) }}</td>
+                    <td><span class="dato {{ ev.estado }}">{{ ev.estado|replace('_', ' ') }}</span>{% if ev.pagina %} <small>pág. {{ ev.pagina }}</small>{% endif %}</td></tr>
+            {% endfor %}
+            </tbody></table>
+            {% endif %}
+        </div>
+        <div>
+            {% if dec and dec.checklist %}
+            <h3>Lista de calidad</h3>
+            <ul class="checklist">{% for texto, ok, grav in dec.checklist %}<li class="{{ 'ok' if ok }}">{{ texto }}</li>{% endfor %}</ul>
+            {% endif %}
+            <details style="margin-top:12px"><summary class="link">Corrección rápida</summary>
+                <form method="post" action="{{ url_for('admin.autopilot_bandeja_accion', id=a.id) }}" class="campos" style="margin-top:8px">
+                    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                    <label class="campo campo-ancho"><span>Título</span><input name="titulo" value="{{ a.titulo }}" maxlength="200"></label>
+                    <label class="campo campo-ancho"><span>Resumen</span><textarea name="resumen" rows="3" maxlength="400">{{ a.resumen or '' }}</textarea></label>
+                    <label class="campo"><span>Fecha límite</span><input type="date" name="fecha_limite" value="{{ a.fecha_limite.isoformat() if a.fecha_limite else '' }}"></label>
+                    <div class="campo" style="align-self:end"><button class="btn" name="accion" value="corregir">Guardar corrección</button></div>
+                </form>
+            </details>
+        </div>
+    </div>
+
+    <form method="post" action="{{ url_for('admin.autopilot_bandeja_accion', id=a.id) }}" class="acciones ap-decision">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button class="btn btn-primario" name="accion" value="aprobar" {% if a.vencida %}disabled{% endif %} data-confirmar="¿Publicar ahora esta ficha? Revisaste la evidencia y los botones.">✔ Aprobar y publicar</button>
+        <label class="sr-only" for="cuando-{{ a.id }}">Fecha de publicación</label>
+        <input id="cuando-{{ a.id }}" type="datetime-local" name="cuando">
+        <button class="btn" name="accion" value="programar" {% if a.vencida %}disabled{% endif %}>Programar</button>
+        <label class="sr-only" for="motivo-{{ a.id }}">Motivo del rechazo</label>
+        <input id="motivo-{{ a.id }}" name="motivo" placeholder="Motivo (si rechazas)" maxlength="500">
+        <button class="btn peligro" name="accion" value="rechazar" data-confirmar="¿Rechazar esta ficha? No se publicará.">✖ Rechazar</button>
+    </form>
+</article>
+{% else %}
+<div class="caja"><p>No hay fichas pendientes de revisión. 🎉</p></div>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}{{ 'Editar' if fu else 'Nueva' }} fuente{% endblock %}
+{% block content %}
+<h1>{{ 'Editar fuente' if fu else 'Nueva fuente' }}</h1>
+<form method="post">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <fieldset><legend>Datos de la fuente</legend>
+        <div class="campos">
+            <label class="campo campo-ancho" for="nombre"><span>Nombre <span class="req">*</span></span><input id="nombre" name="nombre" value="{{ fu.nombre if fu else '' }}" maxlength="150" required placeholder="Ej.: Municipalidad de Chiclayo – Convocatorias CAS"></label>
+            <label class="campo" for="institucion_id"><span>Institución</span>
+                <select id="institucion_id" name="institucion_id"><option value="">— Ninguna —</option>
+                    {% for i in instituciones %}<option value="{{ i.id }}" {{ 'selected' if fu and fu.institucion_id == i.id }}>{{ i.nombre }}</option>{% endfor %}</select>
+                <small>Se asigna a todas las fichas de esta fuente.</small></label>
+            <label class="campo" for="ubicacion_id"><span>Región</span>
+                <select id="ubicacion_id" name="ubicacion_id"><option value="">— Todo el Perú / detectar —</option>
+                    {% for r in regiones %}<option value="{{ r.id }}" {{ 'selected' if fu and fu.ubicacion_id == r.id }}>{{ r.nombre }}</option>
+                        {% for c in r.hijas %}<option value="{{ c.id }}" {{ 'selected' if fu and fu.ubicacion_id == c.id }}>— {{ c.nombre }}</option>{% endfor %}{% endfor %}</select></label>
+            <label class="campo campo-ancho" for="url_principal"><span>URL principal <span class="req">*</span></span><input id="url_principal" type="url" name="url_principal" value="{{ fu.url_principal if fu else '' }}" required></label>
+            <label class="campo campo-ancho" for="url_listado"><span>URL del listado</span><input id="url_listado" type="url" name="url_listado" value="{{ fu.url_listado or '' if fu else '' }}"><small>Página, RSS o API donde aparecen las novedades.</small></label>
+            <label class="campo" for="tipo_contenido"><span>Tipo de contenido</span>
+                <select id="tipo_contenido" name="tipo_contenido">{% for k in orden %}<option value="{{ k }}" {{ 'selected' if fu and fu.tipo_contenido == k }}>{{ TIPOS_ADMIN[k].nombre }}</option>{% endfor %}</select></label>
+            <label class="campo" for="formato"><span>Formato</span>
+                <select id="formato" name="formato">{% for k, n in formatos %}<option value="{{ k }}" {{ 'selected' if fu and fu.formato == k }}>{{ n }}</option>{% endfor %}</select>
+                <small>Preferir API documentada o RSS antes que páginas HTML.</small></label>
+            <label class="campo" for="frecuencia_horas"><span>Consultar cada (horas)</span><input id="frecuencia_horas" type="number" min="1" max="720" name="frecuencia_horas" value="{{ fu.frecuencia_horas if fu else 24 }}"></label>
+            <label class="campo" for="prioridad"><span>Prioridad (1 = alta)</span><input id="prioridad" type="number" min="1" max="5" name="prioridad" value="{{ fu.prioridad if fu else 3 }}"></label>
+            <label class="campo" for="confianza"><span>Confianza editorial</span>
+                <select id="confianza" name="confianza">{% for k, n in confianzas %}<option value="{{ k }}" {{ 'selected' if fu and fu.confianza == k }}>{{ n }}</option>{% endfor %}</select></label>
+            <label class="campo" for="estado"><span>Estado</span>
+                <select id="estado" name="estado">{% for k, n in estados %}<option value="{{ k }}" {{ 'selected' if (fu and fu.estado == k) or (not fu and k == 'pausada') }}>{{ n }}</option>{% endfor %}</select></label>
+        </div>
+    </fieldset>
+    <fieldset><legend>Permisos y condiciones</legend>
+        <label class="campo" for="condiciones_acceso"><span>Condiciones de acceso y uso</span><textarea id="condiciones_acceso" name="condiciones_acceso" rows="3" placeholder="Qué dicen robots.txt y los términos de uso del sitio">{{ fu.condiciones_acceso or '' if fu else '' }}</textarea></label>
+        <label class="check"><input type="checkbox" name="permite_extraccion" value="1" {{ 'checked' if fu and fu.permite_extraccion }}> Confirmo que las condiciones del sitio permiten consultar y extraer datos de forma automatizada</label>
+        <label class="check"><input type="checkbox" name="permite_autopublicacion" value="1" {{ 'checked' if fu and fu.permite_autopublicacion }}> Autorizo que las fichas de esta fuente se publiquen solas cuando cumplan todas las reglas (solo en modo B o C)</label>
+        <label class="campo" for="observaciones"><span>Observaciones</span><textarea id="observaciones" name="observaciones" rows="2">{{ fu.observaciones or '' if fu else '' }}</textarea></label>
+    </fieldset>
+    <fieldset><legend>Lectura del listado (avanzado)</legend>
+        <p class="ayuda" style="margin-bottom:10px">Ayudan a reconocer qué enlaces del listado son convocatorias. Usa «Probar lectura» para comprobar el resultado sin guardar nada.</p>
+        <div class="campos">
+            <label class="campo" for="palabras_clave"><span>Palabras clave (separadas por comas)</span><input id="palabras_clave" name="palabras_clave" value="{{ (cfg.get('palabras_clave') or [])|join(', ') }}" placeholder="convocatoria, cas"></label>
+            <label class="campo" for="excluir"><span>Excluir si contiene</span><input id="excluir" name="excluir" value="{{ (cfg.get('excluir') or [])|join(', ') }}" placeholder="ganadores, resultados"></label>
+            <label class="campo" for="patron_enlace"><span>Patrón de enlace (expresión regular)</span><input id="patron_enlace" name="patron_enlace" value="{{ cfg.get('patron_enlace', '') }}" placeholder="/informes-publicaciones/\d+"></label>
+            <label class="campo" for="patron_id"><span>Patrón del identificador</span><input id="patron_id" name="patron_id" value="{{ cfg.get('patron_id', '') }}" placeholder="/informes-publicaciones/(\d+)"></label>
+            <label class="campo" for="selector"><span>Selector CSS de la zona del listado</span><input id="selector" name="selector" value="{{ cfg.get('selector', '') }}" placeholder="main"></label>
+            <label class="campo" for="ruta_lista"><span>Ruta de la lista en JSON</span><input id="ruta_lista" name="ruta_lista" value="{{ cfg.get('ruta_lista', '') }}" placeholder="data.items"></label>
+            <label class="campo" for="max_items"><span>Máximo de elementos por consulta</span><input id="max_items" type="number" min="1" max="100" name="max_items" value="{{ cfg.get('max_items', 30) }}"></label>
+            <div class="campo"><label class="check"><input type="checkbox" name="no_seguir_detalle" value="1" {{ 'checked' if cfg.get('seguir_detalle') == false }}> No abrir la página de cada elemento</label>
+                <label class="check"><input type="checkbox" name="no_leer_pdf" value="1" {{ 'checked' if cfg.get('leer_pdf') == false }}> No leer los PDF de bases</label></div>
+        </div>
+    </fieldset>
+    <button class="btn btn-primario btn-grande" type="submit">Guardar</button>
+    <a class="btn btn-grande" href="{{ url_for('admin.autopilot_fuentes') }}">Cancelar</a>
+</form>
+{% endblock %}

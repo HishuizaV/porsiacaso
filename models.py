@@ -173,6 +173,7 @@ class Articulo(db.Model):
     # Trazabilidad: quién creó (autor), editó, verificó, aprobó y publicó
     origen = db.Column(db.String(12), nullable=False, default="manual", server_default="manual")
     clave_externa = db.Column(db.String(80), unique=True)   # idempotencia de sincronización
+    sincronizado_en = db.Column(db.DateTime)   # última vez que se envió al servidor público
     editado_por_id = db.Column(db.Integer, db.ForeignKey("usuario.id"))
     verificado_por_id = db.Column(db.Integer, db.ForeignKey("usuario.id"))
     aprobado_por_id = db.Column(db.Integer, db.ForeignKey("usuario.id"))

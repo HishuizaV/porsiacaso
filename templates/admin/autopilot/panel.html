@@ -1,0 +1,149 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Autopilot{% endblock %}
+{% block content %}
+{% set ej = e.ejecucion %}
+<div class="titulo-fila">
+    <div><h1>PorSiAcaso Autopilot</h1>
+        <p class="ayuda">Investiga fuentes autorizadas, prepara fichas con evidencia y las deja para revisión. Trabaja por jornadas de máximo 120 minutos y se cierra solo.</p></div>
+    <a class="btn btn-primario" href="{{ url_for('admin.autopilot_bandeja') }}">Bandeja de revisión ({{ e.pendientes_revision }})</a>
+</div>
+
+<section class="caja ap-estado" id="apEstado" data-url="{{ url_for('admin.autopilot_estado_json') }}" aria-live="polite">
+    <div class="ap-estado-fila">
+        <div>
+            <span class="ap-pildora {{ ej.estado if ej else 'sin' }}" id="apPildora">{% if ej %}{{ {'solicitada':'Solicitada','en_curso':'Trabajando','pausada':'En pausa','completada':'Completada','detenida':'Detenida','interrumpida':'Interrumpida','fallida':'Con error'}.get(ej.estado, ej.estado) }}{% else %}Sin jornadas{% endif %}</span>
+            {% if ej %}<strong>Jornada #{{ ej.id }}</strong> · <span id="apEtapa">{{ ej.etapa or '—' }}</span>{% endif %}
+        </div>
+        {% if ej %}<div class="ap-tiempo"><span id="apMinutos">{{ ej.minutos_transcurridos }}</span> de {{ ej.duracion_max }} min{% if e.restante is not none %} · quedan <span id="apRestante">{{ e.restante }}</span> min{% endif %}</div>{% endif %}
+    </div>
+    {% if ej and ej.estado in ('en_curso', 'pausada') %}
+    <div class="ap-barra" role="progressbar" aria-valuemin="0" aria-valuemax="{{ ej.duracion_max }}" aria-valuenow="{{ ej.minutos_transcurridos }}"><span style="width:{{ [100, (ej.minutos_transcurridos / ej.duracion_max * 100)|round]|min }}%"></span></div>
+    {% endif %}
+
+    {% if current_user.es_admin %}
+    <div class="acciones" style="margin-top:14px">
+        {% if e.activa %}
+        <form method="post" action="{{ url_for('admin.autopilot_control') }}" class="acciones">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            {% if ej.estado == 'pausada' %}<button class="btn btn-oscuro" name="accion" value="continuar">▶ Continuar</button>
+            {% elif ej.estado == 'en_curso' %}<button class="btn" name="accion" value="pausar">⏸ Pausar</button>{% endif %}
+            <button class="btn peligro" name="accion" value="detener" data-confirmar="¿Detener la jornada? Terminará la tarea actual, guardará todo y se cerrará.">■ Detener de forma segura</button>
+        </form>
+        {% else %}
+        <details class="ap-iniciar"><summary class="btn btn-primario btn-grande">▶ Iniciar jornada</summary>
+            <form method="post" action="{{ url_for('admin.autopilot_iniciar') }}" class="caja" style="margin-top:10px">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <div class="campos">
+                    <label class="campo" for="duracion"><span>Duración máxima (minutos)</span>
+                        <input id="duracion" type="number" name="duracion" min="10" max="120" value="{{ cfg.duracion }}"><small>Máximo 120. Al terminar el proceso se cierra solo.</small></label>
+                    <label class="campo" for="objetivo"><span>Meta de fichas útiles</span>
+                        <input id="objetivo" type="number" name="objetivo" min="1" max="30" value="{{ cfg.objetivo }}"><small>Es una meta, no una obligación: no se inventa ni se divide contenido para cumplirla.</small></label>
+                    <fieldset class="campo-ancho"><legend>Tipos a investigar (vacío = todos)</legend>
+                        <div class="acciones">{% for k in orden if k not in ('noticia', 'otro', 'guia') %}<label class="check"><input type="checkbox" name="tipos" value="{{ k }}" {{ 'checked' if k in cfg.tipos }}> {{ TIPOS_ADMIN[k].plural }}</label>{% endfor %}</div></fieldset>
+                    <label class="campo campo-ancho" for="regiones-ini"><span>Regiones (vacío = todas)</span>
+                        <select id="regiones-ini" name="regiones" multiple size="4">{% for r in regiones %}<option value="{{ r.slug }}" {{ 'selected' if r.slug in cfg.regiones }}>{{ r.nombre }}</option>{% endfor %}</select></label>
+                </div>
+                {% if lanzar %}<button class="btn btn-primario" style="margin-top:12px" type="submit">Iniciar ahora</button>
+                {% else %}<p class="ayuda">En este servidor el panel no inicia procesos. Se registrará la jornada para ejecutarla con <code>flask autopilot jornada</code>.</p><button class="btn btn-primario" type="submit">Registrar jornada</button>{% endif %}
+            </form>
+        </details>
+        {% endif %}
+    </div>
+    {% endif %}
+</section>
+
+<div class="rejilla-cifras">
+    <a class="cifra" href="{{ url_for('admin.autopilot_hallazgos') }}"><strong data-cifra="hallazgos">{{ e.hallazgos }}</strong><span>Hallazgos ({{ e.hallazgos_hoy }} hoy)</span></a>
+    <a class="cifra" href="{{ url_for('admin.autopilot_hallazgos', estado='duplicado') }}"><strong data-cifra="duplicados">{{ e.duplicados }}</strong><span>Duplicados detectados</span></a>
+    <a class="cifra" href="{{ url_for('admin.autopilot_bandeja') }}"><strong data-cifra="pendientes_revision">{{ e.pendientes_revision }}</strong><span>Pendientes de revisión</span></a>
+    <a class="cifra" href="{{ url_for('admin.publicaciones', estado='publicado') }}"><strong data-cifra="programadas">{{ e.programadas }}</strong><span>Programadas</span></a>
+    <div class="cifra"><strong>{{ e.aprobadas }}</strong><span>Aprobadas por personas</span></div>
+    <div class="cifra"><strong data-cifra="tareas_pendientes">{{ e.tareas_pendientes }}</strong><span>Tareas para la próxima jornada</span></div>
+    <a class="cifra" href="{{ url_for('admin.autopilot_actualizaciones') }}"><strong data-cifra="actualizaciones">{{ e.actualizaciones }}</strong><span>Cambios detectados por revisar</span></a>
+    <div class="cifra"><strong data-cifra="errores">{{ e.errores }}</strong><span>Tareas con error</span></div>
+</div>
+
+{% if e.fuentes_problema %}
+<section class="caja"><h2>Fuentes con problemas</h2>
+    {% for f in e.fuentes_problema %}<div class="flash aviso"><strong>{{ f.nombre }}</strong> · {{ f.errores_consecutivos }} error(es) seguidos{% if f.ultimo_error %}: {{ f.ultimo_error.splitlines()[0]|truncate(140) }}{% endif %}{% if current_user.es_admin %} · <a href="{{ url_for('admin.autopilot_fuente_form', id=f.id) }}">Revisar</a>{% endif %}</div>{% endfor %}
+</section>
+{% endif %}
+
+{% if ej and ej.informe %}
+<section class="caja"><h2>Informe de la última jornada</h2>
+    {% set inf = ej.informe %}
+    <p>{{ inf.minutos }} min · motivo de cierre: {{ inf.motivo_fin }} · fichas preparadas: <strong>{{ inf.fichas }}</strong></p>
+    {% if inf.recomendaciones %}<ul class="lista-simple">{% for r in inf.recomendaciones %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
+    <p><a href="{{ url_for('admin.autopilot_ejecucion', id=ej.id) }}">Ver informe completo →</a></p>
+</section>
+{% endif %}
+
+{% if current_user.es_admin %}
+<section class="caja">
+<h2>Configuración</h2>
+<form method="post" action="{{ url_for('admin.autopilot_ajustes') }}">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div class="campos">
+        <label class="campo" for="c-dur"><span>Duración por defecto (min)</span><input id="c-dur" type="number" name="duracion" min="10" max="120" value="{{ cfg.duracion }}"></label>
+        <label class="campo" for="c-obj"><span>Meta diaria de fichas</span><input id="c-obj" type="number" name="objetivo" min="1" max="30" value="{{ cfg.objetivo }}"></label>
+        <label class="campo" for="c-esp"><span>Minutos entre publicaciones automáticas</span><input id="c-esp" type="number" name="espaciado" min="0" max="240" value="{{ cfg.espaciado }}"><small>Reparte lo autopublicado en el día (horario 7:00–21:00). 0 = publicar al aprobar.</small></label>
+        <label class="campo" for="c-conc"><span>Descargas simultáneas</span><input id="c-conc" type="number" name="concurrencia" min="1" max="4" value="{{ cfg.concurrencia }}"><small>Moderado y respetuoso: se espera entre peticiones al mismo sitio.</small></label>
+        <fieldset class="campo-ancho"><legend>Tipos a investigar por defecto</legend>
+            <div class="acciones">{% for k in orden if k not in ('noticia', 'otro', 'guia') %}<label class="check"><input type="checkbox" name="tipos" value="{{ k }}" {{ 'checked' if k in cfg.tipos }}> {{ TIPOS_ADMIN[k].plural }}</label>{% endfor %}</div></fieldset>
+        <label class="campo campo-ancho" for="c-reg"><span>Regiones prioritarias</span>
+            <select id="c-reg" name="regiones" multiple size="4">{% for r in regiones %}<option value="{{ r.slug }}" {{ 'selected' if r.slug in cfg.regiones }}>{{ r.nombre }}</option>{% endfor %}</select></label>
+        <label class="check campo-ancho"><input type="checkbox" name="ia" value="1" {{ 'checked' if cfg.ia }}> Usar IA local (Ollama) para completar campos que las reglas no encuentran. Lo propuesto por IA siempre va a revisión.</label>
+        <label class="campo" for="c-mod"><span>Modelo local</span><input id="c-mod" name="ia_modelo" value="{{ cfg.ia_modelo }}"></label>
+    </div>
+
+    <h3 style="margin:18px 0 8px">Publicación automática</h3>
+    <div class="campos">
+        {% for m, texto in [('A', 'Modo A — Solo borradores: todo pasa por revisión humana (recomendado al inicio).'), ('B', 'Modo B — Mixto: empleos, convocatorias y cursos que cumplan todas las reglas se publican solos.'), ('C', 'Modo C — Ampliado: además los tipos y fuentes que autorices expresamente.')] %}
+        <label class="check campo-ancho"><input type="radio" name="modo" value="{{ m }}" {{ 'checked' if cfg.modo == m }}> {{ texto }}</label>
+        {% endfor %}
+        <fieldset class="campo-ancho"><legend>Tipos autorizados para autopublicar (B/C)</legend>
+            <div class="acciones">{% for k in orden if k not in nunca %}<label class="check"><input type="checkbox" name="tipos_auto" value="{{ k }}" {{ 'checked' if k in cfg.tipos_auto }}> {{ TIPOS_ADMIN[k].plural }}</label>{% endfor %}</div>
+            <small class="nota">Bonos, guías y noticias nunca se autopublican. Además, cada fuente debe tener su propio permiso de autopublicación.</small></fieldset>
+        <fieldset class="campo-ancho"><legend>Requisitos antes de activar B o C</legend>
+            {% for k, texto in requisitos %}<label class="check"><input type="checkbox" name="pol_{{ k }}" value="1" {{ 'checked' if cfg.politica.get(k) }}> {{ texto }}{% if cfg.politica.get(k) %} <small class="nota">({{ cfg.politica[k] }})</small>{% endif %}</label>{% endfor %}
+        </fieldset>
+    </div>
+    <button class="btn btn-primario" style="margin-top:14px" type="submit">Guardar configuración</button>
+</form>
+</section>
+{% endif %}
+
+<section class="caja"><h2>Jornadas recientes</h2>
+    {% if historial %}<div class="tabla-wrap"><table><thead><tr><th>#</th><th>Inicio</th><th>Estado</th><th>Duración</th><th>Fichas</th><th></th></tr></thead><tbody>
+    {% for x in historial %}<tr><td>{{ x.id }}</td><td>{{ x.iniciada.strftime('%d/%m %H:%M') if x.iniciada else '—' }}</td><td>{{ x.estado }}</td><td>{{ x.minutos_transcurridos }} min</td><td>{{ x.informe.get('fichas', '—') }}</td><td><a href="{{ url_for('admin.autopilot_ejecucion', id=x.id) }}">Informe</a></td></tr>{% endfor %}
+    </tbody></table></div>{% else %}<p class="ayuda">Todavía no hay jornadas. Registra fuentes y luego inicia la primera.</p>{% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var caja = document.getElementById('apEstado');
+    var pildora = document.getElementById('apPildora');
+    if (!caja || !pildora || !/solicitada|en_curso|pausada/.test(pildora.className)) return;
+    var nombres = {solicitada: 'Solicitada', en_curso: 'Trabajando', pausada: 'En pausa', completada: 'Completada', detenida: 'Detenida', interrumpida: 'Interrumpida', fallida: 'Con error'};
+    function actualizar() {
+        fetch(caja.getAttribute('data-url'), {credentials: 'same-origin'}).then(function (r) { return r.json(); }).then(function (d) {
+            if (d.ejecucion) {
+                pildora.textContent = nombres[d.ejecucion.estado] || d.ejecucion.estado;
+                pildora.className = 'ap-pildora ' + d.ejecucion.estado;
+                var et = document.getElementById('apEtapa'); if (et) et.textContent = d.ejecucion.etapa || '—';
+                var mi = document.getElementById('apMinutos'); if (mi) mi.textContent = d.ejecucion.minutos;
+                var re = document.getElementById('apRestante'); if (re && d.restante !== null) re.textContent = d.restante;
+            }
+            Object.keys(d.cifras).forEach(function (k) {
+                var el = document.querySelector('[data-cifra="' + k + '"]'); if (el) el.textContent = d.cifras[k];
+            });
+            if (d.ejecucion && !/solicitada|en_curso|pausada/.test(d.ejecucion.estado)) { location.reload(); return; }
+            setTimeout(actualizar, 5000);
+        }).catch(function () { setTimeout(actualizar, 15000); });
+    }
+    setTimeout(actualizar, 5000);
+})();
+</script>
+{% endblock %}

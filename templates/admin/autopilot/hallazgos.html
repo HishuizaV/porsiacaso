@@ -1,0 +1,24 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Hallazgos{% endblock %}
+{% block content %}
+<h1>Hallazgos y evidencias</h1>
+<p class="ayuda" style="margin-bottom:12px">Todo lo que el Autopilot encontró en las fuentes y qué decidió con cada elemento.</p>
+<div class="acciones" style="margin-bottom:12px">
+    <a class="btn {{ 'btn-oscuro' if not estado }}" href="{{ url_for('admin.autopilot_hallazgos') }}">Todos</a>
+    {% for k, n in [('borrador','Convertidos en ficha'),('descartado','Descartados'),('duplicado','Duplicados'),('actualizacion','Con cambios'),('nuevo','Por procesar'),('error','Con error')] %}
+    <a class="btn {{ 'btn-oscuro' if estado == k }}" href="{{ url_for('admin.autopilot_hallazgos', estado=k) }}">{{ n }} ({{ conteo.get(k, 0) }})</a>
+    {% endfor %}
+</div>
+{% if pag.items %}
+<div class="tabla-wrap"><table><thead><tr><th>Elemento</th><th>Tipo</th><th>Estado</th><th>Relevancia</th><th>Descubierto</th></tr></thead><tbody>
+{% for h in pag.items %}<tr>
+    <td><a href="{{ url_for('admin.autopilot_hallazgo', id=h.id) }}"><strong>{{ h.titulo or h.url|truncate(60) }}</strong></a><br><small>{{ h.fuente.nombre }}{% if h.motivo %} · {{ h.motivo|truncate(110) }}{% endif %}</small></td>
+    <td>{{ TIPOS_ADMIN[h.tipo_detectado].nombre if h.tipo_detectado in TIPOS_ADMIN else '—' }}</td>
+    <td>{{ h.estado }}{% if h.articulo_id %}<br><a href="{{ url_for('admin.publicacion_form', id=h.articulo_id) }}">ver ficha</a>{% endif %}</td>
+    <td>{{ h.relevancia or 0 }}</td>
+    <td>{{ h.descubierto.strftime('%d/%m %H:%M') }}</td>
+</tr>{% endfor %}
+</tbody></table></div>
+{% if pag.pages > 1 %}<p class="acciones" style="margin-top:12px">{% if pag.has_prev %}<a class="btn" href="{{ url_for('admin.autopilot_hallazgos', estado=estado or None, page=pag.prev_num) }}">‹ Anterior</a>{% endif %}<span class="ayuda">Página {{ pag.page }} de {{ pag.pages }}</span>{% if pag.has_next %}<a class="btn" href="{{ url_for('admin.autopilot_hallazgos', estado=estado or None, page=pag.next_num) }}">Siguiente ›</a>{% endif %}</p>{% endif %}
+{% else %}<div class="caja"><p>Sin hallazgos.</p></div>{% endif %}
+{% endblock %}

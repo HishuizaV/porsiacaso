@@ -154,3 +154,33 @@ legend { font-weight: 800; color: var(--tinta); font-size: 16px; padding: 0 6px;
 .btn-adm:hover { background: var(--marca-osc); }
 .adm-titulo { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; gap: 12px; flex-wrap: wrap; }
 .adm-titulo h1 { margin: 0; }
+
+/* ---- Autopilot ---- */
+.ap-estado-fila { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center; }
+.ap-pildora { display: inline-block; padding: 4px 12px; border-radius: 999px; font-weight: 800; font-size: 13px;
+    background: #eceef1; color: #3c4553; margin-right: 8px; }
+.ap-pildora.en_curso { background: var(--verde-s); color: var(--verde); }
+.ap-pildora.pausada, .ap-pildora.solicitada { background: var(--ambar-s); color: var(--ambar); }
+.ap-pildora.fallida, .ap-pildora.interrumpida { background: var(--rojo-s); color: #7a0f17; }
+.ap-tiempo { font-size: 14px; color: var(--suave); }
+.ap-barra { height: 8px; background: #eceef1; border-radius: 999px; margin-top: 12px; overflow: hidden; }
+.ap-barra span { display: block; height: 100%; background: var(--verde); }
+.ap-iniciar summary { list-style: none; display: inline-flex; }
+.ap-iniciar summary::-webkit-details-marker { display: none; }
+.ap-columnas { display: grid; grid-template-columns: 1fr; gap: 18px; }
+@media (min-width: 1000px) { .ap-columnas { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); } }
+.ap-ficha h3 { font-size: 14px; margin: 14px 0 6px; text-transform: uppercase; letter-spacing: .04em; color: var(--suave); }
+.ap-decision { border-top: 1px solid var(--borde); padding-top: 12px; margin-top: 14px; }
+.ap-decision input { height: 40px; border: 1px solid #c3c8d0; border-radius: 8px; padding: 0 10px; font: inherit; }
+.ap-evidencia { font-size: 13.5px; }
+.ap-evidencia th { text-transform: none; letter-spacing: 0; font-size: 13px; background: none; white-space: nowrap; }
+.dato { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.dato.confirmado { background: var(--verde-s); color: var(--verde); }
+.dato.derivado { background: var(--azul-s); color: var(--azul); }
+.dato.inferido { background: var(--ambar-s); color: var(--ambar); }
+.dato.contradictorio { background: var(--rojo-s); color: #7a0f17; }
+.dato.no_encontrado { background: #eceef1; color: #5b6576; }
+.ap-texto { white-space: pre-wrap; font-size: 12.5px; background: #f8f9fb; padding: 10px; border-radius: 8px;
+    max-height: 420px; overflow: auto; margin-top: 8px; }
+.lista-simple { padding-left: 20px; display: grid; gap: 6px; font-size: 14px; }
+button[disabled] { opacity: .5; cursor: not-allowed; }

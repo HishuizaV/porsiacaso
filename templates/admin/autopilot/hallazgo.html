@@ -1,0 +1,28 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Hallazgo #{{ h.id }}{% endblock %}
+{% block content %}
+<h1>{{ h.titulo or 'Hallazgo #' ~ h.id }}</h1>
+<p class="ayuda" style="margin-bottom:12px">Fuente: {{ h.fuente.nombre }} · <a href="{{ h.url }}" target="_blank" rel="noopener noreferrer">abrir página original ↗</a> · estado: <strong>{{ h.estado }}</strong>{% if h.articulo_id %} · <a href="{{ url_for('admin.publicacion_form', id=h.articulo_id) }}">ver ficha</a>{% endif %}</p>
+{% if h.motivo %}<div class="flash aviso">{{ h.motivo }}</div>{% endif %}
+
+<section class="caja"><h2>Datos y su respaldo</h2>
+<p class="ayuda" style="margin-bottom:8px"><span class="dato confirmado">confirmado</span> aparece en la fuente · <span class="dato derivado">derivado</span> regla verificable · <span class="dato inferido">inferido</span> propuesto por IA, requiere revisión · <span class="dato contradictorio">contradictorio</span> la fuente da valores distintos</p>
+<div class="tabla-wrap"><table class="ap-evidencia"><thead><tr><th>Dato</th><th>Valor</th><th>Estado</th><th>Fragmento de la fuente</th></tr></thead><tbody>
+{% for ev in evidencias %}<tr><th>{{ ev.campo|replace('_', ' ') }}</th><td>{{ (ev.valor or '—')|truncate(160) }}</td>
+    <td><span class="dato {{ ev.estado }}">{{ ev.estado|replace('_', ' ') }}</span><br><small>{{ ev.metodo }}{% if ev.pagina %} · pág. {{ ev.pagina }}{% endif %}</small></td>
+    <td><small>{{ ev.fragmento or '' }}</small>{% if ev.origen and ev.origen != h.url %}<br><small><a href="{{ ev.origen }}" target="_blank" rel="noopener noreferrer">documento</a></small>{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>
+</section>
+
+{% if h.enlaces %}
+<section class="caja"><h2>Enlaces detectados</h2>
+<ul class="lista-simple">{% for t, et, u, ok, det in h.enlaces %}<li>{{ '✔' if ok else ('✖' if ok == false else '•') }} <strong>{{ t }}</strong>{% if et %} ({{ et }}){% endif %} — <a href="{{ u }}" target="_blank" rel="noopener noreferrer">{{ u|truncate(90) }}</a> <small>{{ det }}</small></li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+{% if h.advertencias %}<section class="caja"><h2>Advertencias</h2><ul class="lista-simple">{% for a in h.advertencias %}<li>{{ a }}</li>{% endfor %}</ul></section>{% endif %}
+
+{% if decisiones %}<section class="caja"><h2>Decisiones</h2><ul class="lista-simple">{% for d in decisiones %}<li>{{ d.fecha.strftime('%d/%m/%Y %H:%M') }} · {{ d.actor }}{% if d.usuario %} ({{ d.usuario.nombre }}){% endif %}: <strong>{{ d.decision }}</strong>{% if d.motivo %} — {{ d.motivo|truncate(200) }}{% endif %}</li>{% endfor %}</ul></section>{% endif %}
+
+<details class="caja"><summary>Texto extraído (evidencia completa)</summary><pre class="ap-texto">{{ (h.texto or '')[:20000] }}</pre></details>
+{% endblock %}
