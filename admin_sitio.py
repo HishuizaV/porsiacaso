@@ -3,11 +3,13 @@ import os
 import re
 
 from flask import render_template, request, redirect, url_for, flash, current_app
+from flask_login import current_user
 
 import ajustes
 from admin import admin, solo_admin, bitacora, slug_unico_modelo
 from extensions import db
-from models import Institucion, Registro
+from models import Institucion, Registro, Articulo
+from autopilot.modelos import PropuestaInstitucion, Fuente
 from tipos import SECTORES
 from utils import url_valida, guardar_logo, borrar_archivo
 
@@ -15,13 +17,75 @@ from utils import url_valida, guardar_logo, borrar_archivo
 # ---------- Instituciones ----------
 @admin.route("/instituciones")
 def instituciones():
-    lista = Institucion.query.order_by(Institucion.nombre).all()
-    return render_template("admin/instituciones.html", instituciones=lista, sectores=dict(SECTORES))
+    lista = Institucion.query.order_by(Institucion.verificada, Institucion.nombre).all()
+    propuestas = PropuestaInstitucion.query.filter_by(estado="pendiente") \
+        .order_by(PropuestaInstitucion.fecha).all() if current_user.es_admin else []
+    return render_template("admin/instituciones.html", instituciones=lista, sectores=dict(SECTORES),
+                           propuestas=propuestas)
+
+
+@admin.route("/instituciones/<int:id>/proponer", methods=["POST"])
+def institucion_proponer(id):
+    """Los editores no modifican datos compartidos: proponen la corrección a un administrador."""
+    i = db.get_or_404(Institucion, id)
+    texto = request.form.get("texto", "").strip()[:2000]
+    if len(texto) < 5:
+        flash("Describe la corrección que propones.", "error")
+    else:
+        db.session.add(PropuestaInstitucion(institucion_id=i.id, usuario_id=current_user.id, texto=texto))
+        bitacora("institucion_propuesta", i.nombre)
+        db.session.commit()
+        flash("Propuesta enviada. Un administrador la revisará.", "ok")
+    return redirect(url_for("admin.instituciones"))
+
+
+@admin.route("/instituciones/propuestas/<int:id>", methods=["POST"])
+def institucion_propuesta_resolver(id):
+    solo_admin()
+    pr = db.get_or_404(PropuestaInstitucion, id)
+    pr.estado = "aplicada" if request.form.get("resultado") == "aplicada" else "rechazada"
+    bitacora("institucion_propuesta_" + pr.estado, pr.institucion.nombre)
+    db.session.commit()
+    flash("Propuesta marcada como " + pr.estado + ". Si la aplicaste, edita la institución.", "ok")
+    return redirect(url_for("admin.instituciones"))
+
+
+@admin.route("/instituciones/<int:id>/verificar", methods=["POST"])
+def institucion_verificar(id):
+    solo_admin()
+    i = db.get_or_404(Institucion, id)
+    i.verificada = True
+    bitacora("institucion_verificada", i.nombre)
+    db.session.commit()
+    flash("Institución verificada.", "ok")
+    return redirect(url_for("admin.instituciones"))
+
+
+@admin.route("/instituciones/<int:id>/fusionar", methods=["POST"])
+def institucion_fusionar(id):
+    """Une una institución duplicada con otra: mueve publicaciones y fuentes y borra la duplicada."""
+    solo_admin()
+    origen = db.get_or_404(Institucion, id)
+    destino = db.session.get(Institucion, request.form.get("destino_id", type=int) or 0)
+    if not destino or destino.id == origen.id:
+        flash("Elige otra institución como destino.", "error")
+        return redirect(url_for("admin.instituciones"))
+    Articulo.query.filter_by(institucion_id=origen.id).update({"institucion_id": destino.id})
+    Fuente.query.filter_by(institucion_id=origen.id).update({"institucion_id": destino.id})
+    PropuestaInstitucion.query.filter_by(institucion_id=origen.id).update({"institucion_id": destino.id})
+    bitacora("institucion_fusionada", f"{origen.nombre} → {destino.nombre}")
+    if origen.logo and not destino.logo:
+        destino.logo, origen.logo = origen.logo, None
+    db.session.delete(origen)
+    db.session.commit()
+    flash(f"«{origen.nombre}» se unió a «{destino.nombre}».", "ok")
+    return redirect(url_for("admin.instituciones"))
 
 
 @admin.route("/instituciones/nueva", methods=["GET", "POST"])
 @admin.route("/instituciones/<int:id>/editar", methods=["GET", "POST"])
 def institucion_form(id=None):
+    solo_admin()   # datos compartidos: solo administradores
     i = db.get_or_404(Institucion, id) if id else None
     v = dict(nombre=i.nombre, siglas=i.siglas or "", sector=i.sector or "", web=i.web or "",
              descripcion=i.descripcion or "") if i else \
@@ -47,7 +111,7 @@ def institucion_form(id=None):
                 flash(e, "error")
         else:
             if not i:
-                i = Institucion(slug=slug_unico_modelo(Institucion, v["nombre"]))
+                i = Institucion(slug=slug_unico_modelo(Institucion, v["nombre"]), verificada=True)
                 db.session.add(i)
             i.nombre, i.siglas, i.sector = v["nombre"], v["siglas"] or None, v["sector"] or None
             i.web, i.descripcion = v["web"] or None, v["descripcion"] or None

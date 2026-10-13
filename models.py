@@ -38,12 +38,16 @@ def lineas(texto):
     return salida
 
 
+ROLES = {"admin": "Administrador", "revisor": "Revisor", "editor": "Editor",
+         "servicio": "Servicio Autopilot"}
+
+
 class Usuario(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(80), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
-    rol = db.Column(db.String(10), default="editor")   # admin | editor
+    rol = db.Column(db.String(10), default="editor")   # admin | revisor | editor | servicio
     activo = db.Column(db.Boolean, default=True)
 
     def set_password(self, password):
@@ -55,6 +59,23 @@ class Usuario(UserMixin, db.Model):
     @property
     def es_admin(self):
         return self.rol == "admin"
+
+    @property
+    def es_revisor(self):
+        return self.rol == "revisor"
+
+    @property
+    def puede_publicar(self):
+        """Publicar, aprobar y editar cualquier publicación: administrador o revisor."""
+        return self.rol in ("admin", "revisor")
+
+    @property
+    def es_servicio(self):
+        return self.rol == "servicio"
+
+    @property
+    def nombre_rol(self):
+        return ROLES.get(self.rol, self.rol)
 
     @property
     def is_active(self):
@@ -102,6 +123,8 @@ class Institucion(db.Model):
     logo = db.Column(db.String(120))
     descripcion = db.Column(db.Text)
     creado = db.Column(db.DateTime, default=ahora)
+    # Las creadas por editores o por el Autopilot quedan sin verificar hasta que un admin las revise
+    verificada = db.Column(db.Boolean, nullable=False, default=True, server_default=sa.true())
     articulos = db.relationship("Articulo", backref="institucion", lazy=True)
 
     @property
@@ -146,7 +169,18 @@ class Articulo(db.Model):
     ubicacion_id = db.Column(db.Integer, db.ForeignKey("ubicacion.id"))   # None = todo el Perú
     institucion_id = db.Column(db.Integer, db.ForeignKey("institucion.id"), index=True)
     autor_id = db.Column(db.Integer, db.ForeignKey("usuario.id"), nullable=False)
-    autor = db.relationship("Usuario")
+    autor = db.relationship("Usuario", foreign_keys=[autor_id])
+    # Trazabilidad: quién creó (autor), editó, verificó, aprobó y publicó
+    origen = db.Column(db.String(12), nullable=False, default="manual", server_default="manual")
+    clave_externa = db.Column(db.String(80), unique=True)   # idempotencia de sincronización
+    editado_por_id = db.Column(db.Integer, db.ForeignKey("usuario.id"))
+    verificado_por_id = db.Column(db.Integer, db.ForeignKey("usuario.id"))
+    aprobado_por_id = db.Column(db.Integer, db.ForeignKey("usuario.id"))
+    publicado_por_id = db.Column(db.Integer, db.ForeignKey("usuario.id"))
+    editado_por = db.relationship("Usuario", foreign_keys=[editado_por_id])
+    verificado_por = db.relationship("Usuario", foreign_keys=[verificado_por_id])
+    aprobado_por = db.relationship("Usuario", foreign_keys=[aprobado_por_id])
+    publicado_por = db.relationship("Usuario", foreign_keys=[publicado_por_id])
 
     detalle_empleo = db.relationship("DetalleEmpleo", uselist=False, cascade="all, delete-orphan",
                                      back_populates="articulo")

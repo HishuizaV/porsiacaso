@@ -2,7 +2,7 @@
 {% block title %}Usuarios{% endblock %}
 {% block content %}
 <h1>Usuarios y roles</h1>
-<p class="ayuda" style="margin-bottom:14px"><strong>Editor:</strong> crea y edita sus propias publicaciones. <strong>Administrador:</strong> todo el sitio, configuración y usuarios.</p>
+<p class="ayuda" style="margin-bottom:14px"><strong>Editor:</strong> prepara publicaciones y las envía a revisión. <strong>Revisor:</strong> revisa, corrige, aprueba y publica. <strong>Administrador:</strong> además configura fuentes, Autopilot, usuarios y el sitio. <strong>Servicio Autopilot:</strong> cuenta técnica sin acceso al panel.</p>
 
 <form method="post">
     <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
@@ -12,7 +12,7 @@
             <label class="campo" for="email"><span>Correo</span><input id="email" type="email" name="email" required></label>
             <label class="campo" for="password"><span>Contraseña inicial (mín. 8)</span><input id="password" type="password" name="password" minlength="8" required autocomplete="new-password"></label>
             <label class="campo" for="rol"><span>Rol</span>
-                <select id="rol" name="rol"><option value="editor">Editor</option><option value="admin">Administrador</option></select></label>
+                <select id="rol" name="rol"><option value="editor">Editor</option><option value="revisor">Revisor</option><option value="admin">Administrador</option></select></label>
         </div>
         <button class="btn btn-primario" style="margin-top:14px" type="submit">Crear usuario</button>
     </fieldset>
@@ -22,16 +22,16 @@
     <thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Publicaciones</th><th></th></tr></thead>
     <tbody>{% for u in usuarios %}<tr>
         <td>{{ u.nombre }}</td><td>{{ u.email }}</td>
-        <td>{% if u.id != current_user.id %}
+        <td>{% if u.es_servicio %}{{ u.nombre_rol }}{% elif u.id != current_user.id %}
             <form method="post" action="{{ url_for('admin.usuario_rol', id=u.id) }}" class="acciones">
                 <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
                 <label class="sr-only" for="rol-{{ u.id }}">Rol</label>
-                <select id="rol-{{ u.id }}" name="rol"><option value="editor" {{ 'selected' if u.rol == 'editor' }}>Editor</option><option value="admin" {{ 'selected' if u.rol == 'admin' }}>Administrador</option></select>
+                <select id="rol-{{ u.id }}" name="rol">{% for k, n in [('editor','Editor'),('revisor','Revisor'),('admin','Administrador')] %}<option value="{{ k }}" {{ 'selected' if u.rol == k }}>{{ n }}</option>{% endfor %}</select>
                 <button class="link">Cambiar</button></form>
-            {% else %}{{ 'Administrador' if u.es_admin else 'Editor' }} (tú){% endif %}</td>
+            {% else %}{{ u.nombre_rol }} (tú){% endif %}</td>
         <td>{{ 'Activo' if u.activo else 'Desactivado' }}</td>
         <td>{{ conteo.get(u.id, 0) }}</td>
-        <td>{% if u.id != current_user.id %}
+        <td>{% if u.id != current_user.id and not u.es_servicio %}
             <form method="post" action="{{ url_for('admin.usuario_activo', id=u.id) }}" {% if u.activo %}data-confirmar="¿Desactivar el acceso de {{ u.nombre }}?"{% endif %}>
                 <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
                 <button class="link {{ 'peligro' if u.activo }}">{{ 'Desactivar' if u.activo else 'Activar' }}</button></form>

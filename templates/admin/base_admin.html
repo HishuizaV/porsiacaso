@@ -51,7 +51,7 @@
                 <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
                 <button class="link-nav" type="submit">Salir</button>
             </form>
-            <p class="adm-usuario">{{ current_user.nombre }} · {{ 'Administrador' if current_user.es_admin else 'Editor' }}</p>
+            <p class="adm-usuario">{{ current_user.nombre }} · {{ current_user.nombre_rol }}</p>
         </nav>
     </aside>
     <main class="adm-main">

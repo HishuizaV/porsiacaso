@@ -95,19 +95,32 @@ def test_formularios_especializados(admin_client):
     assert admin_client.get("/admin/nueva/inventado").status_code == 404
 
 
-def test_editor_publica_empleo_sin_html(app, editor_client):
+def test_editor_envia_empleo_a_revision(app, editor_client):
+    """El editor prepara sin HTML; al pulsar «Publicar» queda en revisión (no publica)."""
     r = enviar(editor_client, "/admin/nueva/empleo", form_empleo())
     assert r.status_code == 302
     with app.app_context():
         a = Articulo.query.filter_by(tipo="empleo").one()
-        assert a.estado == "publicado" and a.autor.email == "editor@prueba.test"
+        assert a.estado == "revision" and a.autor.email == "editor@prueba.test"
+        assert a.institucion.verificada is False   # creada por un editor: pendiente de admin
+        slug = a.slug
+    assert editor_client.get(f"/empleos/{slug}").status_code == 404
+
+
+def test_admin_publica_empleo_sin_html(app, admin_client):
+    r = enviar(admin_client, "/admin/nueva/empleo", form_empleo())
+    assert r.status_code == 302
+    with app.app_context():
+        a = Articulo.query.filter_by(tipo="empleo").one()
+        assert a.estado == "publicado" and a.publicado_por.email == "admin@prueba.test"
+        assert a.editado_por_id == a.publicado_por_id and a.verificado_por_id == a.publicado_por_id
         assert a.detalle_empleo.cargo == "Contador junior"
         assert float(a.detalle_empleo.sueldo_min) == 2800.0
         assert a.institucion.nombre == "Empresa Norte SAC" and a.institucion.sector == "privado"
         assert [e.tipo for e in a.enlaces] == ["postular", "otro"]
         assert a.verificado_en is not None and "contador" in a.busqueda
         slug = a.slug
-    html = editor_client.get(f"/empleos/{slug}").get_data(as_text=True)
+    html = admin_client.get(f"/empleos/{slug}").get_data(as_text=True)
     assert 'href="https://empresa-norte.pe/empleos/123"' in html
     assert "Ver ficha completa" in html
     assert '"@type": "JobPosting"' in html
@@ -207,17 +220,21 @@ def test_acciones_archivar_despublicar_duplicar_eliminar(app, admin_client):
         assert Registro.query.filter_by(accion="publicacion_eliminada").count() == 1
 
 
-def test_editor_no_elimina_publicada_ni_destaca(app, editor_client):
+def test_editor_no_elimina_ni_edita_publicada_ni_destaca(app, editor_client):
     with app.app_context():
         aid = crear(titulo="Publicada del editor", autor="editor@prueba.test").id
-    enviar(editor_client, f"/admin/publicacion/{aid}/accion", {"accion": "eliminar"})
-    with app.app_context():
-        assert db.session.get(Articulo, aid) is not None
-    enviar(editor_client, f"/admin/publicacion/{aid}/editar",
-           {"titulo": "Publicada del editor", "resumen": "Resumen suficiente para publicar esto.",
+        bid = crear(titulo="Borrador del editor", autor="editor@prueba.test", estado="borrador").id
+    assert enviar(editor_client, f"/admin/publicacion/{aid}/accion", {"accion": "eliminar"}).status_code == 403
+    assert editor_client.get(f"/admin/publicacion/{aid}/editar").status_code == 403
+    for accion in ("publicar", "despublicar", "archivar"):
+        assert enviar(editor_client, f"/admin/publicacion/{bid}/accion", {"accion": accion}).status_code == 403
+    enviar(editor_client, f"/admin/publicacion/{bid}/editar",
+           {"titulo": "Borrador del editor", "resumen": "Resumen suficiente para publicar esto.",
             "categoria_id": "7", "contenido": "<p>Texto</p>", "destacado": "1", "accion": "publicar"})
     with app.app_context():
-        assert db.session.get(Articulo, aid).destacado is False
+        b = db.session.get(Articulo, bid)
+        assert b.destacado is False and b.estado == "revision"
+        assert db.session.get(Articulo, aid) is not None
 
 
 def test_vista_previa_borrador(app, admin_client, client):

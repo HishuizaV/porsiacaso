@@ -8,7 +8,8 @@ from flask import render_template, request, redirect, url_for, flash, abort, cur
 from flask_login import current_user
 from sqlalchemy import or_
 
-from admin import admin, solo_admin, puede_editar, bitacora, slug_unico_modelo, regiones_con_ciudades
+from admin import (admin, solo_admin, puede_editar, puede_ver, bitacora, slug_unico_modelo,
+                   regiones_con_ciudades)
 from consultas import actualizar_busqueda
 from extensions import db
 from models import (Articulo, Categoria, Ubicacion, Institucion, Enlace, Pagina,
@@ -30,7 +31,7 @@ def carpeta(sub=""):
 
 def mis_publicaciones():
     q = Articulo.query
-    if not current_user.es_admin:
+    if not current_user.puede_publicar:
         q = q.filter_by(autor_id=current_user.id)
     return q
 
@@ -91,7 +92,9 @@ def publicaciones():
          "alerta": request.args.get("alerta", "")}
     if f["q"]:
         like = f"%{normalizar(f['q'])}%"
-        query = query.filter(or_(Articulo.busqueda.like(like), Articulo.titulo.ilike(f"%{f['q']}%")))
+        texto = f["q"].replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        query = query.filter(or_(Articulo.busqueda.like(like),
+                                 Articulo.titulo.ilike(f"%{texto}%", escape="\\")))
     if f["tipo"] in TIPOS:
         query = query.filter(Articulo.tipo == f["tipo"])
     if f["estado"] in dict(ESTADOS):
@@ -219,7 +222,7 @@ def leer_faq(form):
     return faq
 
 
-def buscar_o_crear_institucion(nombre, sector):
+def buscar_o_crear_institucion(nombre, sector, verificada=False):
     nombre = re.sub(r"\s+", " ", nombre or "").strip()[:200]
     if not nombre:
         return None
@@ -231,7 +234,7 @@ def buscar_o_crear_institucion(nombre, sector):
                      if normalizar(i.nombre) == clave or normalizar(i.siglas or "") == clave), None)
     if not inst:
         inst = Institucion(slug=slug_unico_modelo(Institucion, nombre), nombre=nombre,
-                           sector=sector if sector in dict(SECTORES) else None)
+                           sector=sector if sector in dict(SECTORES) else None, verificada=verificada)
         db.session.add(inst)
     return inst
 
@@ -329,6 +332,7 @@ def publicacion_form(tipo=None, id=None):
         f = request.form
         accion = f.get("accion", "borrador")
         accion = accion if accion in ("borrador", "revision", "publicar") else "borrador"
+        envio_editor = accion == "publicar" and not current_user.puede_publicar
         try:
             fecha_limite = leer_fecha(f.get("fecha_limite"))
         except ValueError:
@@ -406,7 +410,7 @@ def publicacion_form(tipo=None, id=None):
                 errores.append("La imagen no es válida (usa JPG, PNG o WEBP).")
         logo = None
         archivo_logo = request.files.get("institucion_logo")
-        if not errores and archivo_logo and archivo_logo.filename:
+        if not errores and archivo_logo and archivo_logo.filename and current_user.es_admin:
             logo = guardar_logo(archivo_logo.stream, carpeta("logos"))
             if not logo:
                 errores.append("El logo no es una imagen válida.")
@@ -434,9 +438,10 @@ def publicacion_form(tipo=None, id=None):
             a.fecha_limite, a.verificado_en = v["fecha_limite"], v["verificado_en"]
             a.vigencia = v["vigencia"] or None
             a.faq_json = json.dumps(faq, ensure_ascii=False) if faq else None
-            a.institucion = buscar_o_crear_institucion(v["institucion"], v["institucion_sector"]) \
+            a.institucion = buscar_o_crear_institucion(v["institucion"], v["institucion_sector"],
+                                                       verificada=current_user.es_admin) \
                 if info["institucion"] else None
-            if logo and a.institucion:
+            if logo and a.institucion and current_user.es_admin:
                 anterior_logo = a.institucion.logo
                 a.institucion.logo = logo
                 if anterior_logo:
@@ -463,7 +468,14 @@ def publicacion_form(tipo=None, id=None):
 
             a.lectura = minutos_lectura(a.contenido)
             a.actualizado = ahora()
+            a.editado_por_id = current_user.id
+            if f.get("verificado_hoy"):
+                a.verificado_por_id = current_user.id
+            if envio_editor:
+                accion = "revision"
             if accion == "publicar":
+                if a.estado != "publicado" or not a.publicado_por_id:
+                    a.aprobado_por_id = a.publicado_por_id = current_user.id
                 a.estado = "publicado"
                 if programar and programar > ahora():
                     a.fecha_publicacion = programar
@@ -485,7 +497,9 @@ def publicacion_form(tipo=None, id=None):
             if imagen_anterior and not Articulo.query.filter_by(imagen=imagen_anterior).first():
                 borrar_archivo(carpeta(), imagen_anterior)
 
-            mensajes = {"publicar": "Publicación publicada.", "revision": "Enviada a revisión.",
+            mensajes = {"publicar": "Publicación publicada.",
+                        "revision": "Enviada a revisión: un revisor o administrador la publicará."
+                        if envio_editor else "Enviada a revisión.",
                         "borrador": "Borrador guardado."}
             if a.programada:
                 flash(f"Publicación programada para el {a.fecha_publicacion:%d/%m/%Y a las %H:%M}.", "ok")
@@ -513,7 +527,7 @@ def publicacion_form(tipo=None, id=None):
 def vista_previa(id):
     """Vista previa fiel (sirve para borradores). Nadie más la ve ni Google la indexa."""
     a = db.get_or_404(Articulo, id)
-    if not puede_editar(a):
+    if not puede_ver(a):
         abort(403)
     from web import render_publicacion
     g.vista_publica = True
@@ -553,9 +567,16 @@ def duplicar(a):
 @admin.route("/publicacion/<int:id>/accion", methods=["POST"])
 def publicacion_accion(id):
     a = db.get_or_404(Articulo, id)
-    if not puede_editar(a):
-        abort(403)
     accion = request.form.get("accion")
+    # Publicar, retirar, archivar y verificar: revisor o administrador. Duplicar: quien pueda verla.
+    if accion in ("publicar", "despublicar", "archivar", "verificada"):
+        if not current_user.puede_publicar:
+            abort(403)
+    elif accion == "duplicar":
+        if not puede_ver(a):
+            abort(403)
+    elif not puede_editar(a):
+        abort(403)
     volver = request.form.get("volver") or url_for("admin.publicaciones")
     if not volver.startswith("/admin"):
         volver = url_for("admin.publicaciones")
@@ -573,6 +594,7 @@ def publicacion_accion(id):
             flash("No se publicó. Edita la publicación y completa lo indicado.", "error")
             return redirect(volver)
         a.estado = "publicado"
+        a.aprobado_por_id = a.publicado_por_id = current_user.id
         if not a.fecha_publicacion:
             a.fecha_publicacion = ahora()
         msg = "Publicada."
@@ -587,6 +609,7 @@ def publicacion_accion(id):
         msg = "Marcada como pendiente de revisión."
     elif accion == "verificada":
         a.verificado_en = hoy()
+        a.verificado_por_id = current_user.id
         msg = "Marcada como verificada hoy."
     elif accion == "duplicar":
         copia = duplicar(a)

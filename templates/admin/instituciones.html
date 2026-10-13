@@ -3,22 +3,65 @@
 {% block content %}
 <div class="titulo-fila">
     <div><h1>Instituciones y empresas</h1>
-        <p class="ayuda">Se crean solas al publicar. Aquí puedes completar su web oficial, siglas y logo.</p></div>
-    <a class="btn btn-primario" href="{{ url_for('admin.institucion_form') }}">+ Nueva institución</a>
+        <p class="ayuda">{% if current_user.es_admin %}Las creadas por editores o por el Autopilot quedan «sin verificar» hasta que las revises. Solo los administradores cambian nombre, web y logo.{% else %}Son datos compartidos: puedes elegirlas en tus publicaciones y proponer correcciones a un administrador.{% endif %}</p></div>
+    {% if current_user.es_admin %}<a class="btn btn-primario" href="{{ url_for('admin.institucion_form') }}">+ Nueva institución</a>{% endif %}
 </div>
+
+{% if propuestas %}
+<section class="caja" aria-labelledby="t-prop">
+    <h2 id="t-prop">Correcciones propuestas por editores</h2>
+    {% for pr in propuestas %}
+    <div class="flash aviso"><strong>{{ pr.institucion.nombre }}</strong> · {{ pr.usuario.nombre if pr.usuario }} · {{ pr.fecha.strftime('%d/%m/%Y') }}<br>{{ pr.texto }}
+        <form method="post" action="{{ url_for('admin.institucion_propuesta_resolver', id=pr.id) }}" class="acciones" style="margin-top:6px">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <a href="{{ url_for('admin.institucion_form', id=pr.institucion_id) }}">Editar institución</a>
+            <button class="link" name="resultado" value="aplicada">Marcar como aplicada</button>
+            <button class="link peligro" name="resultado" value="rechazada">Rechazar</button>
+        </form></div>
+    {% endfor %}
+</section>
+{% endif %}
+
 {% if instituciones %}
 <div class="tabla-wrap"><table>
     <thead><tr><th>Nombre</th><th>Sector</th><th>Web oficial</th><th>Publicaciones</th><th></th></tr></thead>
     <tbody>{% for i in instituciones %}<tr>
-        <td><strong>{{ i.nombre }}</strong>{% if i.siglas %} ({{ i.siglas }}){% endif %}{% if not i.logo %}<br><small>Sin logo</small>{% endif %}</td>
+        <td><strong>{{ i.nombre }}</strong>{% if i.siglas %} ({{ i.siglas }}){% endif %}
+            {% if not i.verificada %}<br><span class="estado revision">Sin verificar</span>{% endif %}{% if not i.logo %}<br><small>Sin logo</small>{% endif %}</td>
         <td>{{ sectores.get(i.sector, '—') }}</td>
         <td>{% if i.web %}<a href="{{ i.web }}" target="_blank" rel="noopener noreferrer">{{ i.web|replace('https://','')|truncate(40) }}</a>{% else %}—{% endif %}</td>
         <td>{{ i.articulos|length }}</td>
-        <td class="acciones"><a href="{{ url_for('admin.institucion_form', id=i.id) }}">Editar</a>
-            {% if current_user.es_admin and not i.articulos %}
-            <form method="post" action="{{ url_for('admin.institucion_eliminar', id=i.id) }}" data-confirmar="¿Eliminar esta institución?">
-                <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button class="link peligro">Eliminar</button></form>
-            {% endif %}</td>
+        <td>
+            {% if current_user.es_admin %}
+            <div class="acciones">
+                <a href="{{ url_for('admin.institucion_form', id=i.id) }}">Editar</a>
+                {% if not i.verificada %}
+                <form method="post" action="{{ url_for('admin.institucion_verificar', id=i.id) }}"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button class="link">Verificar</button></form>
+                {% endif %}
+                {% if instituciones|length > 1 %}
+                <form method="post" action="{{ url_for('admin.institucion_fusionar', id=i.id) }}" class="acciones" data-confirmar="¿Unir esta institución con la elegida? Sus publicaciones pasarán a la otra y esta se eliminará.">
+                    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                    <label class="sr-only" for="fus-{{ i.id }}">Unir con</label>
+                    <select id="fus-{{ i.id }}" name="destino_id"><option value="">Unir con…</option>
+                        {% for o in instituciones if o.id != i.id %}<option value="{{ o.id }}">{{ o.nombre|truncate(40) }}</option>{% endfor %}</select>
+                    <button class="link">Unir</button>
+                </form>
+                {% endif %}
+                {% if not i.articulos %}
+                <form method="post" action="{{ url_for('admin.institucion_eliminar', id=i.id) }}" data-confirmar="¿Eliminar esta institución?">
+                    <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button class="link peligro">Eliminar</button></form>
+                {% endif %}
+            </div>
+            {% else %}
+            <details><summary class="link">Proponer corrección</summary>
+                <form method="post" action="{{ url_for('admin.institucion_proponer', id=i.id) }}" style="margin-top:6px">
+                    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                    <label class="campo"><span class="sr-only">Corrección</span><textarea name="texto" rows="2" maxlength="2000" placeholder="Ej.: la web oficial es https://…" required></textarea></label>
+                    <button class="btn" type="submit">Enviar propuesta</button>
+                </form>
+            </details>
+            {% endif %}
+        </td>
     </tr>{% endfor %}</tbody>
 </table></div>
 {% else %}<div class="caja"><p>Todavía no hay instituciones.</p></div>{% endif %}

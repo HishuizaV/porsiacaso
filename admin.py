@@ -1,7 +1,7 @@
 import time
 
 from flask import (Blueprint, render_template, request, redirect,
-                   url_for, flash, abort, current_app)
+                   url_for, flash, abort, current_app, session)
 from flask_login import login_user, logout_user, login_required, current_user
 
 from extensions import db
@@ -33,7 +33,19 @@ def solo_admin():
 
 
 def puede_editar(a):
-    return current_user.es_admin or a.autor_id == current_user.id
+    """Revisor/admin: cualquier publicación. Editor: solo las suyas que aún no están publicadas."""
+    if current_user.puede_publicar:
+        return True
+    return a.autor_id == current_user.id and a.estado in ("borrador", "revision")
+
+
+def puede_ver(a):
+    return current_user.puede_publicar or a.autor_id == current_user.id
+
+
+def solo_publicadores():
+    if not current_user.puede_publicar:
+        abort(403)
 
 
 def bitacora(accion, detalle=""):
@@ -73,8 +85,9 @@ def login():
             flash("Demasiados intentos fallidos. Espera 10 minutos.", "error")
         else:
             u = Usuario.query.filter_by(email=email).first()
-            if u and u.activo and u.check_password(request.form.get("password", "")):
+            if u and u.activo and not u.es_servicio and u.check_password(request.form.get("password", "")):
                 INTENTOS.pop(clave, None)
+                session.clear()   # sesión nueva al entrar (evita fijación de sesión)
                 login_user(u)
                 return redirect(url_for("admin.panel"))
             intentos += 1
@@ -272,7 +285,7 @@ def usuarios():
         nombre = f.get("nombre", "").strip()
         email = f.get("email", "").strip().lower()
         password = f.get("password", "")
-        rol = "admin" if f.get("rol") == "admin" else "editor"
+        rol = f.get("rol") if f.get("rol") in ("admin", "revisor", "editor") else "editor"
         if not nombre or not email or len(password) < 8:
             flash("Completa nombre, correo y una contraseña de mínimo 8 caracteres.", "error")
         elif Usuario.query.filter_by(email=email).first():
@@ -310,7 +323,10 @@ def usuario_rol(id):
     if u.id == current_user.id:
         flash("No puedes cambiar tu propio rol.", "error")
     else:
-        u.rol = "admin" if request.form.get("rol") == "admin" else "editor"
+        if u.es_servicio:
+            abort(400)
+        rol = request.form.get("rol")
+        u.rol = rol if rol in ("admin", "revisor", "editor") else "editor"
         bitacora("usuario_rol", f"{u.email} → {u.rol}")
         db.session.commit()
         flash(f"Rol de {u.nombre} actualizado.", "ok")

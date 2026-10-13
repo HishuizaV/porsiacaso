@@ -12,6 +12,7 @@ from utils import slugify
 from datos_iniciales import (CATEGORIAS_INICIALES, PAGINAS_INICIALES, PAGINAS_NUEVAS,
                              REGIONES_INICIALES, CIUDADES_INICIALES)
 import seguridad
+import autopilot.modelos  # noqa: F401  (registra las tablas del Autopilot)
 
 BASE = os.path.abspath(os.path.dirname(__file__))
 CLAVE_EJEMPLO = "cambia-esto-antes-de-publicar"
