@@ -1,0 +1,3 @@
+# Archivos de terceros con hash de integridad (SRI): nunca convertir saltos de linea
+static/vendor/** -text
+*.pdf binary
