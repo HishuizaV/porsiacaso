@@ -1,0 +1,14 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Nueva publicación{% endblock %}
+{% block content %}
+<h1>¿Qué quieres publicar?</h1>
+<p class="ayuda" style="margin-bottom:18px">Elige el tipo. Cada uno abre un formulario con los campos que necesita: no tienes que escribir código ni crear botones a mano.</p>
+<div class="tipos">
+    {% for k in orden %}{% set t = TIPOS_ADMIN[k] %}
+    <a class="tipo" href="{{ url_for('admin.publicacion_form', tipo=k) }}">
+        <span class="tipo-icono" aria-hidden="true">{{ t.icono }}</span>
+        <span><strong>Publicar {{ t.nombre|lower }}</strong><span>{{ t.descripcion }}</span></span>
+    </a>
+    {% endfor %}
+</div>
+{% endblock %}

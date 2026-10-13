@@ -1,0 +1,15 @@
+{% from '_macros.html' import lista %}
+{% if d.publico %}<div class="aviso aviso-info"><strong>¿A quién está dirigida?</strong>{{ d.publico }}</div>{% endif %}
+{% if d.requisitos %}
+<section class="seccion-ficha" aria-labelledby="t-req"><h2 id="t-req">Requisitos</h2>{{ lista(d.requisitos|lineas) }}</section>
+{% endif %}
+{% if d.cobertura or d.beneficios %}
+<section class="seccion-ficha" aria-labelledby="t-cob">
+    <h2 id="t-cob">Qué cubre</h2>
+    {% if d.cobertura %}{{ lista(d.cobertura|lineas) }}{% endif %}
+    {% if d.beneficios %}<h3 class="subtitulo">Otros beneficios</h3>{{ lista(d.beneficios|lineas) }}{% endif %}
+</section>
+{% endif %}
+{% if d.pasos %}
+<section class="seccion-ficha" aria-labelledby="t-pasos"><h2 id="t-pasos">Cómo postular, paso a paso</h2>{{ lista(d.pasos|lineas, 'pasos') }}</section>
+{% endif %}

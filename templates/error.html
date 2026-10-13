@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}{{ titulo }} | Por Si Acaso{% endblock %}
+{% block robots %}noindex, nofollow{% endblock %}
+{% block content %}
+<div class="contenedor">
+    <div class="pagina" style="text-align:center">
+        <p class="error-codigo">{{ codigo }}</p>
+        <h1>{{ titulo }}</h1>
+        <p>{{ texto }}</p>
+        <p style="margin-top:20px"><a class="boton boton-primario" href="{{ url_for('web.inicio') }}">Ir al inicio</a></p>
+    </div>
+</div>
+{% endblock %}

@@ -1,40 +1,33 @@
 {% extends "admin/base_admin.html" %}
-{% block title %}Editar página{% endblock %}
-
+{% block title %}{{ 'Nueva página' if nueva else 'Editar página' }}{% endblock %}
 {% block head %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css">
 {% endblock %}
-
 {% block content %}
-<h1>Editar: {{ p.titulo }}</h1>
-
-<form method="post" id="form" class="form-art">
+<h1>{{ 'Nueva página' if nueva else 'Editar: ' ~ p.titulo }}</h1>
+{% if not nueva %}<p class="ayuda" style="margin-bottom:14px">Dirección: /{{ p.slug }} (no cambia al editar).</p>{% endif %}
+<form method="post" id="form">
     <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-    <label>Título
-        <input name="titulo" value="{{ p.titulo }}" maxlength="120" required>
-    </label>
-    <div>
-        <span class="etiqueta">Contenido</span>
-        <div id="editor">{{ p.contenido|safe }}</div>
-        <input type="hidden" name="contenido" id="contenido">
-    </div>
-    <button class="btn-adm">Guardar</button>
+    <fieldset><legend>Contenido</legend>
+        <label class="campo" for="titulo"><span>Título</span>
+            <input id="titulo" name="titulo" value="{{ p.titulo }}" maxlength="120" required></label>
+        <div class="campo" style="margin-top:14px"><span class="etiqueta">Texto</span>
+            <div id="editor">{{ p.contenido|safe }}</div>
+            <input type="hidden" name="contenido" id="contenido">
+            <small>Reemplaza todo lo marcado como [PENDIENTE] con datos reales antes de hacerla visible. No inventes datos legales.</small>
+        </div>
+        <label class="check" style="margin-top:14px"><input type="checkbox" name="visible" value="1" {{ 'checked' if p.visible }}> Visible en el sitio y en el pie de página</label>
+    </fieldset>
+    <button class="btn btn-primario btn-grande" type="submit">Guardar</button>
+    <a class="btn btn-grande" href="{{ url_for('admin.paginas') }}">Cancelar</a>
 </form>
 {% endblock %}
-
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
 <script>
-    const quill = new Quill('#editor', {
-        theme: 'snow',
-        modules: { toolbar: [
-            [{ header: [2, 3, false] }],
-            ['bold', 'italic', 'underline'],
-            [{ list: 'ordered' }, { list: 'bullet' }],
-            ['blockquote', 'link'],
-            ['clean']
-        ]}
-    });
+    var quill = new Quill('#editor', { theme: 'snow', modules: { toolbar: [
+        [{ header: [2, 3, false] }], ['bold', 'italic', 'underline'],
+        [{ list: 'ordered' }, { list: 'bullet' }], ['blockquote', 'link'], ['clean']] } });
     document.getElementById('form').addEventListener('submit', function () {
         document.getElementById('contenido').value = quill.root.innerHTML;
     });

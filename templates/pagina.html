@@ -1,11 +1,14 @@
 {% extends "base.html" %}
 {% block title %}{{ titulo }} | Por Si Acaso{% endblock %}
+{% block description %}{{ titulo }} de Por Si Acaso, portal de información útil para el Perú.{% endblock %}
 {% block robots %}{{ 'noindex, follow' if noindex else 'index, follow' }}{% endblock %}
+{% block banner %}{% if noindex %}<div class="banner banner-vista">Página oculta: solo los administradores pueden verla.</div>{% endif %}{% endblock %}
 {% block content %}
-<div class="container">
-    <div class="pagina">
+<div class="contenedor">
+    <article class="pagina">
         <h1>{{ titulo }}</h1>
-        <div class="prose">{{ contenido|safe }}</div>
-    </div>
+        <div class="prosa">{{ contenido|safe }}</div>
+        {% if p and p.actualizado %}<p class="fuente-legal">Última actualización: {{ p.actualizado.strftime('%d/%m/%Y') }}</p>{% endif %}
+    </article>
 </div>
 {% endblock %}

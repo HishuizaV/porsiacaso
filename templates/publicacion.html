@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% from '_macros.html' import foto, logo_org, estado, fila, tarjeta, anuncio, migas as migas_nav, lista, jsonld as ld with context %}
+
+{% block title %}{{ a.titulo }} | Por Si Acaso{% endblock %}
+{% block description %}{{ (a.resumen or a.titulo)|truncate(158) }}{% endblock %}
+{% block robots %}{{ 'noindex, nofollow' if (vista_previa or a.estado == 'archivado') else 'index, follow, max-image-preview:large' }}{% endblock %}
+{% block canonical %}{{ url }}{% endblock %}
+{% block og_type %}article{% endblock %}
+{% block og_image %}{{ imagen_og }}{% endblock %}
+{% block jsonld %}{% for j in jsonld %}{{ ld(j) }}{% endfor %}{% endblock %}
+
+{% block banner %}
+{% if vista_previa %}
+<div class="banner banner-vista" role="status">Vista previa · Estado: {{ a.estado }}{% if a.programada %} (programada){% endif %} · Solo el equipo puede ver esta página</div>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+{% set principal = a.enlace_principal %}
+<div class="contenedor ficha">
+    {{ migas_nav(migas) }}
+
+    {% if vista_previa and motivos_jobposting %}
+    <div class="aviso aviso-info"><strong>Para el equipo: esta oferta no tendrá datos de Google Empleos (JobPosting) porque…</strong>
+        <ul>{% for m in motivos_jobposting %}<li>{{ m }}</li>{% endfor %}</ul></div>
+    {% endif %}
+
+    {% if a.situacion in ('vencida', 'cerrada', 'archivada') %}
+    <div class="aviso aviso-error" role="note">
+        <strong>{% if a.situacion == 'vencida' %}Esta convocatoria venció el {{ a.fecha_limite_larga }}.{% elif a.situacion == 'cerrada' %}Esta convocatoria está cerrada.{% else %}Publicación archivada.{% endif %}</strong>
+        La mantenemos como referencia. {% if a.es_oportunidad %}<a class="enlace" href="{{ url_for('web.seccion', tipo=a.tipo) }}">Ver {{ a.info.plural|lower }} vigentes</a>.{% endif %}
+    </div>
+    {% elif a.situacion == 'por_confirmar' %}
+    <div class="aviso" role="note"><strong>Información pendiente de verificación.</strong> Aún no hay confirmación oficial completa: revisa la fuente antes de realizar cualquier gestión.</div>
+    {% endif %}
+
+    <div class="ficha-grid">
+        <div class="ficha-principal">
+            <header class="ficha-cabecera">
+                <div class="tarjeta-chips"><a class="chip chip-tipo" href="{{ url_for('web.seccion', tipo=a.tipo) }}">{{ a.info.nombre }}</a>{{ estado(a) }}</div>
+                <h1>{{ a.titulo }}</h1>
+                {% if a.institucion %}
+                <div class="ficha-org">
+                    {{ logo_org(a) }}
+                    <div><strong>{{ a.institucion.nombre }}</strong>
+                        <small>{% if a.institucion.sector %}{{ {'publico':'Sector público','privado':'Sector privado','ong':'ONG','internacional':'Organismo internacional','educativo':'Institución educativa'}[a.institucion.sector] }}{% endif %}{% if a.ubicacion %} · 📍 <a class="enlace" href="{{ url_for('web.zona', slug=a.ubicacion.slug) }}">{{ a.ubicacion.nombre }}{% if a.ubicacion.tipo == 'ciudad' %}, {{ a.ubicacion.region.nombre }}{% endif %}</a>{% endif %}</small></div>
+                </div>
+                {% endif %}
+                <p class="ficha-meta">
+                    <span>Publicado el {{ a.fecha }}</span>
+                    {% if a.actualizado and a.fecha_publicacion and a.actualizado.date() > a.fecha_publicacion.date() %}<span>Actualizado el {{ a.actualizado.strftime('%d/%m/%Y') }}</span>{% endif %}
+                    {% if a.verificado_en %}<span>✔ Verificado en la fuente el {{ a.verificado_largo }}</span>{% endif %}
+                    {% if not a.institucion and a.ubicacion %}<span>📍 <a class="enlace" href="{{ url_for('web.zona', slug=a.ubicacion.slug) }}">{{ a.ubicacion.nombre }}</a></span>{% endif %}
+                    <span>Por {{ a.autor.nombre }}</span>
+                </p>
+                {% if a.resumen %}<p class="ficha-lead">{{ a.resumen }}</p>{% endif %}
+                {% if a.imagen %}
+                <figure class="ficha-img">
+                    {{ foto(a, eager=True, miniatura=False) }}
+                    {% if a.imagen_credito %}<figcaption>Imagen: {{ a.imagen_credito }}</figcaption>{% endif %}
+                </figure>
+                {% endif %}
+            </header>
+
+            {% if a.aviso %}<div class="aviso" role="note"><strong>Importante</strong>{{ a.aviso }}</div>{% endif %}
+
+            {% set detalle_tpl = {'empleo': 'fichas/_empleo.html', 'beca': 'fichas/_beca.html', 'curso': 'fichas/_curso.html', 'beneficio': 'fichas/_bono.html', 'tramite': 'fichas/_tramite.html'}.get(a.info.detalle) %}
+            {% if detalle_tpl and d %}{% include detalle_tpl %}{% endif %}
+
+            {% if a.contenido %}
+            <section class="seccion-ficha" aria-labelledby="t-contenido">
+                <h2 id="t-contenido">{{ a.info.etiqueta_contenido if a.info.detalle else 'Contenido' }}</h2>
+                <div class="prosa">{{ a.contenido|safe }}</div>
+            </section>
+            {% endif %}
+
+            {% if a.datos %}
+            <section class="seccion-ficha" aria-labelledby="t-datos">
+                <h2 id="t-datos">Datos clave</h2>
+                <dl class="datos-clave">{% for k, v in a.datos %}<div><dt>{{ k }}</dt><dd>{{ v }}</dd></div>{% endfor %}</dl>
+            </section>
+            {% endif %}
+
+            {% if a.faq %}
+            <section class="seccion-ficha faq" aria-labelledby="t-faq">
+                <h2 id="t-faq">Preguntas frecuentes</h2>
+                {% for f in a.faq %}<details><summary>{{ f.p }}</summary><p>{{ f.r }}</p></details>{% endfor %}
+            </section>
+            {% endif %}
+
+            {{ anuncio('articulo') }}
+
+            <section class="seccion-ficha" aria-labelledby="t-fuente">
+                <h2 id="t-fuente">Fuente y verificación</h2>
+                <div class="fuente">
+                    {% if a.fuente_url %}
+                    <p>Fuente: <a class="enlace" href="{{ a.fuente_url }}" target="_blank" rel="noopener noreferrer nofollow">{{ a.fuente_nombre or a.fuente_url|replace('https://', '')|replace('http://', '')|truncate(60) }}<span class="sr-only"> (abre en otra pestaña)</span></a></p>
+                    {% elif a.fuente_nombre %}<p>Fuente: {{ a.fuente_nombre }}</p>
+                    {% else %}<p>Esta publicación no indica una fuente externa.</p>{% endif %}
+                    {% if a.verificado_en %}<p>Última verificación: {{ a.verificado_largo }}.</p>{% endif %}
+                </div>
+                {% if a.es_oportunidad %}
+                <p class="fuente-legal">Por Si Acaso no es la entidad convocante ni cobra por postular. Confirma requisitos y plazos en la fuente oficial. ¿Ves un error? Revisa nuestra página de correcciones o escríbenos.</p>
+                {% endif %}
+            </section>
+        </div>
+
+        {% if a.es_oportunidad or principal or a.enlaces_secundarios or (d and a.info.detalle) %}
+        <aside class="ficha-lateral" aria-label="Resumen y enlaces oficiales">
+            <div class="panel-accion">
+                <h2>En resumen</h2>
+                {% if a.dias_restantes is not none and a.situacion == 'abierta' %}
+                <p class="cuenta-regresiva {{ 'ok' if a.dias_restantes > 7 }}">
+                    {% if a.dias_restantes == 0 %}Último día para postular{% elif a.dias_restantes == 1 %}Queda 1 día{% else %}Quedan {{ a.dias_restantes }} días{% endif %}
+                </p>
+                {% endif %}
+                {% include "fichas/_resumen.html" %}
+
+                <div class="botones-accion">
+                    {% if a.vigente %}
+                        {% if principal %}
+                        <a class="boton boton-primario boton-bloque" href="{{ url_enlace(principal) }}" target="_blank" rel="noopener noreferrer nofollow">{{ principal.texto }} ↗<span class="sr-only"> (abre en otra pestaña)</span></a>
+                        {% endif %}
+                    {% endif %}
+                    {% for e in a.enlaces_secundarios %}
+                        {% if a.vigente or e.tipo not in ('postular', 'inscripcion') %}
+                        <a class="boton boton-secundario boton-bloque" href="{{ url_enlace(e) }}" target="_blank" rel="noopener noreferrer nofollow">{{ e.texto }}{% if e.archivo %} <small>(PDF)</small>{% endif %} ↗<span class="sr-only"> (abre en otra pestaña)</span></a>
+                        {% endif %}
+                    {% endfor %}
+                    {% if not principal and a.es_oportunidad and a.vigente %}
+                    <p class="sin-enlace">{% if a.fuente_url %}La entidad no publicó un enlace directo. Revisa el procedimiento en la <a class="enlace" href="{{ a.fuente_url }}" target="_blank" rel="noopener noreferrer nofollow">fuente oficial</a>.{% else %}La entidad no publicó un enlace directo para este trámite.{% endif %}</p>
+                    {% endif %}
+                    {% if principal or a.enlaces_secundarios %}<p class="nota">Los botones llevan a sitios oficiales externos.</p>{% endif %}
+                </div>
+            </div>
+        </aside>
+        {% endif %}
+    </div>
+
+    {% if relacionados %}
+    <section class="bloque" aria-labelledby="t-rel">
+        <div class="bloque-cabecera"><h2 id="t-rel">También te puede interesar</h2></div>
+        {% if a.es_oportunidad %}
+        <div class="lista-oportunidades">{% for r in relacionados %}{{ fila(r) }}{% endfor %}</div>
+        {% else %}
+        <div class="rejilla rejilla-3">{% for r in relacionados %}{{ tarjeta(r) }}{% endfor %}</div>
+        {% endif %}
+    </section>
+    {% endif %}
+</div>
+{% endblock %}

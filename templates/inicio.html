@@ -1,64 +1,98 @@
 {% extends "base.html" %}
-{% from '_macros.html' import tarjeta, item, anuncio with context %}
+{% from '_macros.html' import fila, tarjeta, anuncio, jsonld with context %}
+
+{% block jsonld %}{{ jsonld(JSONLD_WEB) }}{{ jsonld(JSONLD_ORG) }}{% endblock %}
 
 {% block content %}
-
-<section class="hero">
-    <div class="container">
-        <div class="hero-text">
-            <span class="hero-tag">Información verificada</span>
-            <h1>Encuentra información útil, oportunidades y datos importantes para tu día a día</h1>
-            <p>Empleos, becas, beneficios, trámites, turismo y actualidad del Perú, explicados sin vueltas.</p>
-            <a href="#categorias" class="btn">Explorar información →</a>
+<section class="portada">
+    <div class="contenedor">
+        <h1>Empleos, becas, bonos y trámites del Perú, con su fuente oficial</h1>
+        <p>Requisitos, fechas límite y enlaces para postular, revisados y explicados sin vueltas.</p>
+        <form class="portada-buscar" action="{{ url_for('web.buscar') }}" method="get" role="search">
+            <label class="sr-only" for="q-portada">¿Qué necesitas encontrar?</label>
+            <input id="q-portada" type="search" name="q" placeholder="Ej.: trabajo en Chiclayo, beca 18, duplicado de DNI" maxlength="100">
+            <button class="boton boton-primario" type="submit">Buscar</button>
+        </form>
+        {% if regiones %}
+        <div class="portada-sugerencias">
+            {% for r, n in regiones[:4] %}
+            <a href="{{ url_for('web.zona', slug=r.slug) }}">📍 {{ r.nombre }}</a>
+            {% endfor %}
         </div>
+        {% endif %}
     </div>
 </section>
 
-<div class="container">
+<div class="contenedor">
+    {% if MENU %}
+    <nav class="accesos" aria-label="Accesos rápidos">
+        {% for clave, t in MENU %}
+        <a class="acceso" href="{{ url_for('web.seccion', tipo=clave) }}">
+            <span class="acceso-icono" aria-hidden="true">{{ t.icono }}</span>
+            <strong>{{ t.plural }}</strong>
+            <small>{{ CONTEOS[clave] }} publicación{{ 'es' if CONTEOS[clave] != 1 }}</small>
+        </a>
+        {% endfor %}
+    </nav>
+    {% endif %}
+
+    {% if destacados %}
+    <section class="bloque" aria-labelledby="t-destacados">
+        <div class="bloque-cabecera"><h2 id="t-destacados">Destacado</h2></div>
+        <div class="rejilla rejilla-3">{% for a in destacados %}{{ tarjeta(a) }}{% endfor %}</div>
+    </section>
+    {% endif %}
+
+    {% if por_vencer %}
+    <section class="bloque" aria-labelledby="t-vencer">
+        <div class="bloque-cabecera">
+            <div><h2 id="t-vencer">Cierran esta semana</h2><p>Postula a tiempo: estas convocatorias vencen en los próximos 7 días.</p></div>
+        </div>
+        <div class="lista-oportunidades">{% for a in por_vencer %}{{ fila(a) }}{% endfor %}</div>
+    </section>
+    {% endif %}
+
+    {% if oportunidades %}
+    <section class="bloque" aria-labelledby="t-oport">
+        <div class="bloque-cabecera"><h2 id="t-oport">Oportunidades recientes</h2>
+            {% if CONTEOS.get('empleo') %}<a href="{{ url_for('web.seccion', tipo='empleo') }}">Ver empleos →</a>{% endif %}</div>
+        <div class="lista-oportunidades">{% for a in oportunidades %}{{ fila(a) }}{% endfor %}</div>
+    </section>
+    {% endif %}
 
     {{ anuncio('superior') }}
 
-    {% if ZONAS %}
-    <div class="zonas">
-        <strong>📍 Elige tu zona:</strong>
-        {% for g in ZONAS %}
-        <a class="chip" href="{{ url_for('zona', slug=g.region.slug) }}">{{ g.region.nombre }}</a>
-        {% endfor %}
-    </div>
+    {% if regiones %}
+    <section class="bloque" aria-labelledby="t-regiones">
+        <div class="bloque-cabecera"><h2 id="t-regiones">Busca por región</h2></div>
+        <div class="tarjeta-chips">
+            {% for r, n in regiones %}
+            <a class="chip chip-link" href="{{ url_for('web.zona', slug=r.slug) }}">{{ r.nombre }} · {{ n }}</a>
+            {% endfor %}
+        </div>
+    </section>
     {% endif %}
 
-    <h2 class="titulo" id="categorias">Categorías</h2>
-    <div class="categorias">
-        {% for c in CATEGORIAS %}
-        <a class="cat-card" href="{{ url_for('categoria', slug=c.slug) }}">
-            <span class="cat-icono">{{ c.icono }}</span>
-            <h3>{{ c.nombre }}</h3>
-            <p>{{ c.descripcion }}</p>
-            <span class="cat-linea"></span>
-        </a>
-        {% endfor %}
-    </div>
-
-    {% if destacados %}
-    <h2 class="titulo">Artículos destacados</h2>
-    <div class="destacados">
-        {% for a in destacados %}
-            {{ tarjeta(a, grande=loop.first) }}
-        {% endfor %}
-    </div>
-
-    <div class="con-sidebar">
-        <section>
-            <h2 class="titulo">Últimas publicaciones</h2>
-            <div class="panel">
-                {% for a in recientes %}{{ item(a) }}{% endfor %}
-            </div>
-        </section>
-        {% include "_sidebar.html" %}
-    </div>
-    {% else %}
-    <p class="vacio">Pronto publicaremos información útil aquí. Vuelve en unos días.</p>
+    {% if guias %}
+    <section class="bloque" aria-labelledby="t-guias">
+        <div class="bloque-cabecera"><h2 id="t-guias">Guías y trámites</h2></div>
+        <div class="rejilla">{% for a in guias %}{{ fila(a) }}{% endfor %}</div>
+    </section>
     {% endif %}
 
+    {% if noticias %}
+    <section class="bloque" aria-labelledby="t-noticias">
+        <div class="bloque-cabecera"><h2 id="t-noticias">Noticias</h2>
+            <a href="{{ url_for('web.seccion', tipo='noticia') }}">Ver todas →</a></div>
+        <div class="rejilla rejilla-3">{% for a in noticias %}{{ tarjeta(a) }}{% endfor %}</div>
+    </section>
+    {% endif %}
+
+    {% if not (destacados or oportunidades or guias or noticias) %}
+    <div class="vacio bloque">
+        <strong>Estamos preparando las primeras publicaciones</strong>
+        Muy pronto encontrarás aquí convocatorias y guías verificadas.
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

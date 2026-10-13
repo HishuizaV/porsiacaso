@@ -81,3 +81,32 @@ REGIONES_INICIALES = [
 
 # (ciudad, región). Las demás las agregas tú desde el panel.
 CIUDADES_INICIALES = [("Chiclayo", "Lambayeque")]
+
+# Páginas que se agregan con `flask completar-paginas`. Se crean OCULTAS: el administrador
+# debe revisarlas y completar los datos marcados como [PENDIENTE] antes de mostrarlas.
+PAGINAS_NUEVAS = [
+    ("descargo-de-responsabilidad", "Descargo de responsabilidad sobre convocatorias", """
+<h2>Somos un medio informativo, no la entidad convocante</h2>
+<p>Por Si Acaso difunde convocatorias de empleo, becas, cursos, bonos y trámites publicados por terceros (entidades públicas, empresas e instituciones). <strong>No participamos en los procesos de selección, no cobramos por postular y no gestionamos pagos de beneficios.</strong></p>
+<h2>Confirma siempre en la fuente oficial</h2>
+<p>Cada publicación indica su fuente y la fecha en que la revisamos. Las bases, requisitos, montos y plazos pueden cambiar: antes de postular, pagar o presentar documentos, revisa la información en el enlace oficial.</p>
+<h2>Nunca pedimos dinero ni datos personales</h2>
+<p>Desconfía de cualquier persona que pida pagos o tu DNI, contraseñas o datos bancarios en nombre de Por Si Acaso. Nuestro asistente automático tampoco solicita datos personales.</p>
+"""),
+    ("publicidad", "Información sobre publicidad", """
+<h2>Cómo se financia este sitio</h2>
+<p>Por Si Acaso puede mostrar anuncios de Google AdSense para cubrir sus costos. Los anuncios se identifican con la palabra «Publicidad» y están separados del contenido.</p>
+<h2>Independencia editorial</h2>
+<p>Los anunciantes no deciden qué publicamos. No aceptamos pagos para publicar convocatorias ni para presentarlas como oficiales.</p>
+<h2>Cookies publicitarias</h2>
+<p>Cuando los anuncios estén activos, Google y sus socios pueden usar cookies para mostrarlos. Más información en nuestra <a href="/privacidad">Política de privacidad</a> y en la <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener">página de Google sobre publicidad</a>.</p>
+"""),
+    ("correcciones", "Correcciones y actualización de información", """
+<h2>Cómo actualizamos la información</h2>
+<p>Las convocatorias y beneficios cambian. Cada publicación muestra la fecha de su última verificación en la fuente oficial. Cuando una convocatoria vence, lo indicamos en la misma página.</p>
+<h2>Reporta un error</h2>
+<p>Si encuentras un dato incorrecto o un enlace roto, escríbenos indicando la dirección de la página y el dato a corregir: [PENDIENTE: correo de contacto real].</p>
+<h2>Qué hacemos con tu reporte</h2>
+<p>Revisamos el dato en la fuente oficial y, si corresponde, corregimos la publicación y actualizamos su fecha de verificación.</p>
+"""),
+]

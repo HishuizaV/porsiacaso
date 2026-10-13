@@ -1,0 +1,20 @@
+{% from '_macros.html' import lista %}
+{% if d.nivel_educativo or d.formacion or d.experiencia or d.competencias %}
+<section class="seccion-ficha" aria-labelledby="t-req">
+    <h2 id="t-req">Requisitos</h2>
+    {% if d.nivel_educativo %}<p><strong>Nivel mínimo de estudios:</strong> {{ OPC.NIVELES_EDUCATIVOS[d.nivel_educativo] }}</p>{% endif %}
+    {% for titulo, texto in [('Formación', d.formacion), ('Experiencia', d.experiencia), ('Competencias y conocimientos', d.competencias)] %}
+    {% if texto %}
+    <h3 class="subtitulo">{{ titulo }}</h3>
+    {{ lista(texto|lineas) }}
+    {% endif %}
+    {% endfor %}
+</section>
+{% endif %}
+{% if d.funciones %}
+<section class="seccion-ficha" aria-labelledby="t-fun">
+    <h2 id="t-fun">Funciones y responsabilidades</h2>
+    {{ lista(d.funciones|lineas) }}
+</section>
+{% endif %}
+{% if d.lugar %}<div class="aviso aviso-info"><strong>Lugar de trabajo</strong>{{ d.lugar }}</div>{% endif %}

@@ -1,0 +1,18 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Registro de actividad{% endblock %}
+{% block content %}
+<h1>Registro de actividad</h1>
+<p class="ayuda" style="margin-bottom:14px">Acciones importantes del panel (publicar, eliminar, cambiar configuración, usuarios).</p>
+{% if pag.items %}
+<div class="tabla-wrap"><table>
+    <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Detalle</th></tr></thead>
+    <tbody>{% for r in pag.items %}<tr>
+        <td>{{ r.fecha.strftime('%d/%m/%Y %H:%M') }}</td><td>{{ r.usuario.nombre if r.usuario else '—' }}</td>
+        <td>{{ r.accion|replace('_', ' ') }}</td><td>{{ r.detalle }}</td></tr>{% endfor %}</tbody>
+</table></div>
+{% if pag.pages > 1 %}<p class="acciones" style="margin-top:14px">
+    {% if pag.has_prev %}<a class="btn" href="{{ url_for('admin.registros', page=pag.prev_num) }}">‹ Anterior</a>{% endif %}
+    <span class="ayuda">Página {{ pag.page }} de {{ pag.pages }}</span>
+    {% if pag.has_next %}<a class="btn" href="{{ url_for('admin.registros', page=pag.next_num) }}">Siguiente ›</a>{% endif %}</p>{% endif %}
+{% else %}<div class="caja"><p>Sin registros todavía.</p></div>{% endif %}
+{% endblock %}

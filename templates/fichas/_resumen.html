@@ -1,0 +1,33 @@
+{# Datos clave del panel lateral, según el tipo. Solo se muestran los campos con valor. #}
+<dl class="datos-clave">
+    {% if a.fecha_limite %}<div><dt>Fecha límite</dt><dd>{{ a.fecha_limite.strftime('%d/%m/%Y') }}</dd></div>{% endif %}
+    {% if d and a.info.detalle == 'empleo' %}
+        {% if d.cargo %}<div><dt>Puesto</dt><dd>{{ d.cargo }}</dd></div>{% endif %}
+        {% if d.sueldo_texto %}<div><dt>Remuneración</dt><dd>{{ d.sueldo_texto }}{% if d.sueldo_max is none or d.sueldo_max == d.sueldo_min %} al mes{% endif %}</dd></div>{% endif %}
+        {% if d.modalidad %}<div><dt>Modalidad</dt><dd>{{ OPC.MODALIDADES[d.modalidad] }}</dd></div>{% endif %}
+        {% if d.vacantes %}<div><dt>Vacantes</dt><dd>{{ d.vacantes }}</dd></div>{% endif %}
+        {% if d.jornada %}<div><dt>Jornada</dt><dd>{{ OPC.JORNADAS[d.jornada] }}</dd></div>{% endif %}
+        {% if d.tipo_contrato %}<div><dt>Contrato</dt><dd>{{ OPC.CONTRATOS[d.tipo_contrato] }}</dd></div>{% endif %}
+        {% if d.tipo_convocatoria %}<div><dt>Régimen</dt><dd>{{ OPC.TIPOS_CONVOCATORIA[d.tipo_convocatoria] }}</dd></div>{% endif %}
+        {% if d.codigo %}<div><dt>Código</dt><dd>{{ d.codigo }}</dd></div>{% endif %}
+    {% elif d and a.info.detalle == 'beca' %}
+        {% if d.nivel %}<div><dt>Nivel</dt><dd>{{ d.nivel }}</dd></div>{% endif %}
+        {% if d.lugar_estudio %}<div><dt>Dónde</dt><dd>{{ d.lugar_estudio }}</dd></div>{% endif %}
+        {% if d.modalidad %}<div><dt>Modalidad</dt><dd>{{ OPC.MODALIDADES_CURSO[d.modalidad] }}</dd></div>{% endif %}
+        {% if d.vacantes %}<div><dt>Vacantes</dt><dd>{{ d.vacantes }}</dd></div>{% endif %}
+    {% elif d and a.info.detalle == 'curso' %}
+        {% if d.costo %}<div><dt>Costo</dt><dd>{{ OPC.COSTOS[d.costo] }}{% if d.costo_detalle %} · {{ d.costo_detalle }}{% endif %}</dd></div>{% endif %}
+        {% if d.modalidad %}<div><dt>Modalidad</dt><dd>{{ OPC.MODALIDADES_CURSO[d.modalidad] }}</dd></div>{% endif %}
+        {% if d.duracion %}<div><dt>Duración</dt><dd>{{ d.duracion }}</dd></div>{% endif %}
+        {% if d.fecha_inicio %}<div><dt>Inicio</dt><dd>{{ d.fecha_inicio.strftime('%d/%m/%Y') }}</dd></div>{% endif %}
+        {% if d.certificado %}<div><dt>Certificado</dt><dd>{{ OPC.CERTIFICADOS[d.certificado] }}</dd></div>{% endif %}
+        {% if d.nivel %}<div><dt>Nivel</dt><dd>{{ d.nivel }}</dd></div>{% endif %}
+    {% elif d and a.info.detalle == 'beneficio' %}
+        {% if d.monto %}<div><dt>Monto</dt><dd>{{ d.monto }}</dd></div>{% endif %}
+    {% elif d and a.info.detalle == 'tramite' %}
+        {% if d.costo %}<div><dt>Costo</dt><dd>{{ d.costo }}</dd></div>{% endif %}
+        {% if d.plazo %}<div><dt>Plazo</dt><dd>{{ d.plazo }}</dd></div>{% endif %}
+        {% if d.canal %}<div><dt>Atención</dt><dd>{{ OPC.CANALES[d.canal] }}</dd></div>{% endif %}
+    {% endif %}
+    {% if a.ubicacion %}<div><dt>Lugar</dt><dd>{{ a.ubicacion.nombre }}</dd></div>{% elif a.es_oportunidad %}<div><dt>Lugar</dt><dd>Todo el Perú</dd></div>{% endif %}
+</dl>

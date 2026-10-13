@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from '_macros.html' import tarjeta, fila, anuncio, paginacion, migas with context %}
+
+{% if modo == 'categoria' %}
+    {% set titulo_h1 = cat.nombre %}
+    {% set texto = cat.descripcion %}
+{% else %}
+    {% set titulo_h1 = 'Información útil en ' ~ ubic.nombre %}
+    {% set texto = 'Empleos, becas, cursos, trámites y más en ' ~ ubic.nombre ~ ', con su fuente oficial.' %}
+{% endif %}
+{% block title %}{{ titulo_h1 }}{% if pag.page > 1 %} · página {{ pag.page }}{% endif %} | Por Si Acaso{% endblock %}
+{% block description %}{{ texto|truncate(158) }}{% endblock %}
+{% block robots %}{{ 'index, follow' if pag.total and (modo != 'categoria' or cat.visible) else 'noindex, follow' }}{% endblock %}
+{% block canonical %}{% if modo == 'categoria' %}{{ abs_url('web.categoria', slug=cat.slug, page=pag.page if pag.page > 1 else None) }}{% else %}{{ abs_url('web.zona', slug=ubic.slug, page=pag.page if pag.page > 1 else None) }}{% endif %}{% endblock %}
+
+{% block content %}
+<section class="encabezado">
+    <div class="contenedor">
+        {% if modo == 'zona' and ubic.padre %}
+        {{ migas([('Inicio', url_for('web.inicio')), (ubic.padre.nombre, url_for('web.zona', slug=ubic.padre.slug)), (ubic.nombre, None)]) }}
+        {% else %}
+        {{ migas([('Inicio', url_for('web.inicio')), (titulo_h1, None)]) }}
+        {% endif %}
+        <h1>{% if modo == 'categoria' %}{{ cat.icono }} {% else %}📍 {% endif %}{{ titulo_h1 }}</h1>
+        <p>{{ texto }}</p>
+        {% if modo == 'zona' and (secciones or ciudades) %}
+        <div class="chips-region">
+            {% for k, t in secciones %}<a class="chip chip-link" href="{{ url_for('web.seccion_region', tipo=k, zona_slug=ubic.slug) }}">{{ t.plural }}</a>{% endfor %}
+            {% for c in ciudades %}<a class="chip chip-link" href="{{ url_for('web.zona', slug=c.slug) }}">📍 {{ c.nombre }}</a>{% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<div class="contenedor">
+    <section class="bloque" aria-label="Publicaciones">
+        {% if pag.items %}
+        <div class="rejilla rejilla-3">{% for a in pag.items %}{{ tarjeta(a, nivel=2) }}{% endfor %}</div>
+        {{ paginacion(pag) }}
+        {% else %}
+        <div class="vacio"><strong>Aún no hay publicaciones aquí.</strong>Publicamos solo información verificada; vuelve pronto.</div>
+        {% endif %}
+    </section>
+    {{ anuncio('superior') }}
+</div>
+{% endblock %}

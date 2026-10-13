@@ -1,0 +1,57 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Configuración{% endblock %}
+{% block content %}
+<h1>Configuración del sitio</h1>
+<p class="ayuda" style="margin-bottom:16px">Los cambios se aplican al instante. Nada de esto contrata servicios ni genera costos.</p>
+<form method="post">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+
+    <fieldset><legend>Datos de contacto y redes</legend>
+        <div class="campos">
+            <label class="campo" for="contacto_email"><span>Correo público de contacto</span>
+                <input id="contacto_email" type="email" name="contacto_email" value="{{ v.contacto_email }}" placeholder="Correo real que revises">
+                <small>Se muestra en el pie de página. Usa un correo real: es requisito de confianza para AdSense.</small></label>
+            {% for k, n in [('facebook_url','Facebook'),('instagram_url','Instagram'),('tiktok_url','TikTok'),('youtube_url','YouTube')] %}
+            <label class="campo" for="{{ k }}"><span>{{ n }}</span>
+                <input id="{{ k }}" type="url" name="{{ k }}" value="{{ v[k] }}" placeholder="https://… (vacío = no se muestra)"></label>
+            {% endfor %}
+        </div>
+    </fieldset>
+
+    <fieldset><legend>Google Search Console</legend>
+        <label class="campo" for="google_verificacion"><span>Código de verificación (etiqueta HTML)</span>
+            <input id="google_verificacion" name="google_verificacion" value="{{ v.google_verificacion }}" maxlength="100">
+            <small>En Search Console elige «Etiqueta HTML» y pega solo el valor de <code>content="…"</code>.</small></label>
+    </fieldset>
+
+    <fieldset><legend>Publicidad</legend>
+        <div class="campos">
+            <label class="campo campo-ancho" for="anuncios_modo"><span>Modo de publicidad</span>
+                <select id="anuncios_modo" name="anuncios_modo">
+                    <option value="off" {{ 'selected' if v.anuncios_modo == 'off' }}>Desactivada (nadie ve anuncios)</option>
+                    <option value="maqueta" {{ 'selected' if v.anuncios_modo == 'maqueta' }}>Maqueta: solo los administradores ven los espacios</option>
+                    <option value="adsense" {{ 'selected' if v.anuncios_modo == 'adsense' }}>AdSense real (solo con sitio aprobado)</option>
+                </select>
+                <small>La maqueta no carga código de Google ni genera impresiones. AdSense solo se activa con un ID de editor válido.</small></label>
+            <label class="campo" for="adsense_cliente"><span>ID de editor de AdSense</span>
+                <input id="adsense_cliente" name="adsense_cliente" value="{{ v.adsense_cliente }}" placeholder="ca-pub-0000000000000000">
+                <small>Lo encuentras en tu cuenta de AdSense. Con él se agrega la etiqueta de verificación del sitio.</small></label>
+            <span></span>
+            {% for k, n in [('adsense_slot_superior','Bloque en listados e inicio'),('adsense_slot_articulo','Bloque dentro de publicaciones'),('adsense_slot_lateral','Bloque lateral (reservado)')] %}
+            <label class="campo" for="{{ k }}"><span>{{ n }}</span>
+                <input id="{{ k }}" name="{{ k }}" value="{{ v[k] }}" inputmode="numeric" placeholder="ID del bloque (solo números)"></label>
+            {% endfor %}
+            <label class="campo campo-ancho" for="ads_txt"><span>Contenido de ads.txt</span>
+                <textarea id="ads_txt" name="ads_txt" rows="3" placeholder="Pega aquí exactamente la línea que te indique AdSense">{{ v.ads_txt }}</textarea>
+                <small>Se publica en /ads.txt. Vacío = la dirección no existe. No inventes líneas: cópialas de tu cuenta de AdSense.</small></label>
+        </div>
+    </fieldset>
+
+    <fieldset><legend>Asistente PorSiAcaso</legend>
+        <label class="check"><input type="checkbox" name="asistente_activo" value="1" {{ 'checked' if v.asistente_activo != '0' }}> Mostrar el asistente automático a los visitantes</label>
+        <p class="ayuda">Funciona sin servicios de pago: busca en las publicaciones vigentes y solo enlaza páginas del sitio. No guarda conversaciones.</p>
+    </fieldset>
+
+    <button class="btn btn-primario btn-grande" type="submit">Guardar configuración</button>
+</form>
+{% endblock %}

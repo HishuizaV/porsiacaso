@@ -1,25 +1,20 @@
 {% extends "admin/base_admin.html" %}
 {% block title %}Páginas{% endblock %}
 {% block content %}
-<h1>Páginas fijas</h1>
-<p style="margin-bottom:16px">Sobre nosotros, privacidad, contacto, etc. Edítalas con tus datos reales.</p>
-
-<div class="tabla-wrap">
-<table>
-    <thead><tr><th>Título</th><th>Dirección</th><th>Actualizada</th><th></th></tr></thead>
-    <tbody>
-    {% for p in paginas %}
-        <tr>
-            <td><strong>{{ p.titulo }}</strong></td>
-            <td>/{{ p.slug }}</td>
-            <td>{{ p.actualizado.strftime('%d/%m/%Y') }}</td>
-            <td class="acciones">
-                <a href="{{ url_for('admin.pagina_form', id=p.id) }}">Editar</a>
-                <a href="{{ url_for('pagina', slug=p.slug) }}" target="_blank">Ver</a>
-            </td>
-        </tr>
-    {% endfor %}
-    </tbody>
-</table>
+<div class="titulo-fila">
+    <div><h1>Páginas institucionales</h1>
+        <p class="ayuda">Quiénes somos, contacto, privacidad, términos, política editorial… Complétalas con datos reales. Las ocultas no se ven en el sitio.</p></div>
+    <a class="btn btn-primario" href="{{ url_for('admin.pagina_form') }}">+ Nueva página</a>
 </div>
+<div class="tabla-wrap"><table>
+    <thead><tr><th>Título</th><th>Dirección</th><th>Estado</th><th>Actualizada</th><th></th></tr></thead>
+    <tbody>{% for p in paginas %}<tr>
+        <td><strong>{{ p.titulo }}</strong>{% if p.id in pendientes %}<br><small class="peligro">Tiene datos de ejemplo o [PENDIENTE]</small>{% endif %}</td>
+        <td>/{{ p.slug }}</td>
+        <td><span class="estado {{ 'publicado' if p.visible else 'borrador' }}">{{ 'Visible' if p.visible else 'Oculta' }}</span></td>
+        <td>{{ p.actualizado.strftime('%d/%m/%Y') if p.actualizado }}</td>
+        <td class="acciones"><a href="{{ url_for('admin.pagina_form', id=p.id) }}">Editar</a>
+            <a href="{{ url_for('web.pagina', slug=p.slug) }}" target="_blank" rel="noopener">Ver ↗</a></td>
+    </tr>{% endfor %}</tbody>
+</table></div>
 {% endblock %}

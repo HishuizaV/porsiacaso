@@ -1,0 +1,8 @@
+{% from '_macros.html' import lista %}
+{% if d.horario %}<div class="aviso aviso-info"><strong>Horario</strong>{{ d.horario }}</div>{% endif %}
+{% if d.temario %}
+<section class="seccion-ficha" aria-labelledby="t-tem"><h2 id="t-tem">Qué aprenderás</h2>{{ lista(d.temario|lineas) }}</section>
+{% endif %}
+{% if d.requisitos %}
+<section class="seccion-ficha" aria-labelledby="t-req"><h2 id="t-req">Requisitos</h2>{{ lista(d.requisitos|lineas) }}</section>
+{% endif %}

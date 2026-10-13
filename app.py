@@ -1,225 +1,211 @@
+import hashlib
 import os
+import sqlite3
+
 import click
-from flask import Flask, render_template, request, Response, url_for
-from sqlalchemy import or_
+from flask import Flask, render_template, url_for, request
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from extensions import db, login_manager, migrate
-from models import Usuario, Categoria, Ubicacion, Articulo, Pagina
-from admin import admin
+from models import Usuario, Categoria, Ubicacion, Pagina, ahora, lineas
 from utils import slugify
-from datos_iniciales import (CATEGORIAS_INICIALES, PAGINAS_INICIALES,
+from datos_iniciales import (CATEGORIAS_INICIALES, PAGINAS_INICIALES, PAGINAS_NUEVAS,
                              REGIONES_INICIALES, CIUDADES_INICIALES)
+import seguridad
 
 BASE = os.path.abspath(os.path.dirname(__file__))
-SITE_URL = os.environ.get("SITE_URL", "http://127.0.0.1:5000").rstrip("/")
-
-app = Flask(__name__)
-app.config.update(
-    SECRET_KEY=os.environ.get("SECRET_KEY", "cambia-esto-antes-de-publicar"),
-    SQLALCHEMY_DATABASE_URI=os.environ.get(
-        "DATABASE_URL", "sqlite:///" + os.path.join(BASE, "porsiacaso.db")),
-    UPLOAD_FOLDER=os.path.join(BASE, "static", "uploads"),
-    MAX_CONTENT_LENGTH=8 * 1024 * 1024,
-    SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SAMESITE="Lax",
-    SESSION_COOKIE_SECURE=os.environ.get("PRODUCCION") == "1",
-)
-
-db.init_app(app)
-migrate.init_app(app, db)
-login_manager.init_app(app)
-app.register_blueprint(admin)
+CLAVE_EJEMPLO = "cambia-esto-antes-de-publicar"
 
 
-def abs_url(endpoint, **valores):
-    """URL absoluta (para SEO, Open Graph y sitemap)."""
-    return SITE_URL + url_for(endpoint, **valores)
+def crear_app(config=None):
+    app = Flask(__name__)
+    produccion = os.environ.get("PRODUCCION") == "1"
+    app.config.update(
+        SECRET_KEY=os.environ.get("SECRET_KEY", CLAVE_EJEMPLO),
+        SQLALCHEMY_DATABASE_URI=os.environ.get(
+            "DATABASE_URL", "sqlite:///" + os.path.join(BASE, "porsiacaso.db")),
+        UPLOAD_FOLDER=os.path.join(BASE, "static", "uploads"),
+        MAX_CONTENT_LENGTH=12 * 1024 * 1024,
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="Lax",
+        SESSION_COOKIE_SECURE=produccion,
+        REMEMBER_COOKIE_SECURE=produccion,
+        REMEMBER_COOKIE_HTTPONLY=True,
+        SITE_URL=os.environ.get("SITE_URL", "http://127.0.0.1:5000").rstrip("/"),
+        PRODUCCION=produccion,
+        POR_PAGINA=12,
+    )
+    if config:
+        app.config.update(config)
+
+    if app.config["PRODUCCION"] and app.config["SECRET_KEY"] in (CLAVE_EJEMPLO, "", None):
+        raise RuntimeError("Define SECRET_KEY en el entorno antes de iniciar en producción.")
+    if os.environ.get("CONFIAR_PROXY") == "1":   # detrás de Nginx / proveedor con proxy
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+    db.init_app(app)
+    migrate.init_app(app, db)
+    login_manager.init_app(app)
+    login_manager.session_protection = "strong"
+
+    from admin import admin
+    import admin_contenido  # noqa: F401  (registra rutas en el blueprint admin)
+    import admin_sitio      # noqa: F401
+    from web import web
+    from asistente import api
+    app.register_blueprint(admin)
+    app.register_blueprint(web)
+    app.register_blueprint(api)
+
+    registrar_plantillas(app)
+    registrar_errores(app)
+    registrar_comandos(app)
+
+    @app.before_request
+    def _csrf():
+        seguridad.verificar_csrf(app)
+
+    @app.after_request
+    def cabeceras(resp):
+        resp.headers["X-Content-Type-Options"] = "nosniff"
+        resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        resp.headers["X-Frame-Options"] = "SAMEORIGIN"
+        resp.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        if request.path.startswith("/admin"):
+            resp.headers["Cache-Control"] = "no-store"
+        if app.config["PRODUCCION"]:
+            resp.headers["Strict-Transport-Security"] = "max-age=31536000"
+        return resp
+
+    return app
 
 
-app.jinja_env.globals["abs_url"] = abs_url
+def registrar_plantillas(app):
+    from web import contexto_publico, url_publicacion, url_enlace, url_imagen, url_con
+
+    def abs_url(endpoint, **valores):
+        """URL absoluta (para SEO, Open Graph y sitemap)."""
+        return app.config["SITE_URL"] + url_for(endpoint, **valores)
+
+    import tipos as T
+    opciones = {n: dict(getattr(T, n)) for n in (
+        "MODALIDADES", "MODALIDADES_CURSO", "SECTORES", "NIVELES_EDUCATIVOS", "TIPOS_CONVOCATORIA",
+        "JORNADAS", "CONTRATOS", "COSTOS", "CERTIFICADOS", "CANALES", "VIGENCIAS", "ESTADOS")}
+    app.jinja_env.filters["lineas"] = lineas
+    app.jinja_env.filters["dict_sin_page"] = lambda d: {k: v for k, v in d.items() if k != "page"}
+    app.jinja_env.globals["TIPOS_ADMIN"] = T.TIPOS
+    app.jinja_env.globals.update(OPC=opciones, abs_url=abs_url, csrf_token=seguridad.csrf_token,
+                                 url_publicacion=url_publicacion, url_enlace=url_enlace,
+                                 url_imagen=url_imagen, url_con=url_con)
+    app.jinja_env.trim_blocks = True
+    app.jinja_env.lstrip_blocks = True
+    app.context_processor(contexto_publico)
 
 
-# ---------- Comandos ----------
-@app.cli.command("iniciar")
-def iniciar():
-    """Carga categorías, zonas y páginas iniciales (después de: flask db upgrade)."""
-    if Categoria.query.count() == 0:
-        for i, (slug, corto, nombre, icono, desc) in enumerate(CATEGORIAS_INICIALES):
-            db.session.add(Categoria(slug=slug, corto=corto, nombre=nombre,
-                                     icono=icono, descripcion=desc, orden=i))
-    if Pagina.query.count() == 0:
-        for slug, titulo, contenido in PAGINAS_INICIALES:
-            db.session.add(Pagina(slug=slug, titulo=titulo, contenido=contenido.strip()))
-    if Ubicacion.query.count() == 0:
-        regiones = {}
-        for nombre in REGIONES_INICIALES:
-            u = Ubicacion(slug=slugify(nombre), nombre=nombre, tipo="region")
-            db.session.add(u)
-            regiones[nombre] = u
-        db.session.flush()
-        for ciudad, region in CIUDADES_INICIALES:
-            db.session.add(Ubicacion(slug=slugify(ciudad), nombre=ciudad, tipo="ciudad",
-                                     padre_id=regiones[region].id))
-    db.session.commit()
-    click.echo("Datos iniciales listos.")
-
-
-@app.cli.command("crear-admin")
-@click.option("--nombre", prompt=True)
-@click.option("--email", prompt=True)
-@click.password_option()
-def crear_admin(nombre, email, password):
-    """Crea el usuario administrador."""
-    u = Usuario(nombre=nombre, email=email.strip().lower(), rol="admin")
-    u.set_password(password)
-    db.session.add(u)
-    db.session.commit()
-    click.echo("Administrador creado.")
-
-
-# ---------- Consultas y contexto ----------
-def publicados():
-    return Articulo.query.filter_by(estado="publicado")
-
-
-def ubicaciones_activas():
-    """Zonas con al menos un artículo publicado, agrupadas por región."""
-    ids = [i for (i,) in db.session.query(Articulo.ubicacion_id)
-           .filter(Articulo.estado == "publicado", Articulo.ubicacion_id.isnot(None))
-           .distinct()]
-    if not ids:
-        return []
-    grupos = {}
-    for u in Ubicacion.query.filter(Ubicacion.id.in_(ids)).all():
-        region = u if (u.tipo == "region" or u.padre is None) else u.padre
-        g = grupos.setdefault(region.id, {"region": region, "ciudades": []})
-        if u.tipo == "ciudad" and u.padre is not None:
-            g["ciudades"].append(u)
-    lista = sorted(grupos.values(), key=lambda g: g["region"].nombre)
-    for g in lista:
-        g["ciudades"].sort(key=lambda c: c.nombre)
-    return lista
-
-
-@app.context_processor
-def globales():
-    return {
-        "CATEGORIAS": Categoria.query.filter_by(visible=True).order_by(Categoria.orden).all(),
-        "RECIENTES": publicados().order_by(Articulo.fecha_publicacion.desc()).limit(4).all(),
-        "PAGINAS": Pagina.query.order_by(Pagina.id).all(),
-        "ZONAS": ubicaciones_activas(),
-        "ANUNCIOS": os.environ.get("ANUNCIOS", "maqueta"),   # maqueta | off | adsense
-        "SITE_URL": SITE_URL,
+def registrar_errores(app):
+    mensajes = {
+        400: ("Solicitud no válida", "El formulario caducó o tiene datos incorrectos. "
+                                      "Vuelve atrás, recarga la página e inténtalo de nuevo."),
+        403: ("Sin permiso", "No tienes permiso para hacer esto."),
+        404: ("Página no encontrada", "Lo que buscas no existe o fue movido."),
+        413: ("Archivo demasiado grande", "El archivo supera el tamaño permitido (12 MB en total)."),
+        429: ("Demasiadas solicitudes", "Espera un momento antes de volver a intentarlo."),
+        500: ("Error del servidor", "Ocurrió un problema inesperado. Inténtalo más tarde."),
     }
 
+    def manejador(codigo):
+        def vista(e):
+            if codigo == 500:
+                db.session.rollback()
+            titulo, texto = mensajes[codigo]
+            if request.path.startswith("/api/"):
+                return {"error": titulo}, codigo
+            try:
+                return render_template("error.html", titulo=titulo, texto=texto, codigo=codigo), codigo
+            except Exception:   # la propia plantilla falló: respuesta mínima, sin detalles internos
+                db.session.rollback()
+                return f"{codigo} · {titulo}. {texto}", codigo, {"Content-Type": "text/plain; charset=utf-8"}
+        return vista
 
-@app.after_request
-def cabeceras(resp):
-    resp.headers["X-Content-Type-Options"] = "nosniff"
-    resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    return resp
-
-
-# ---------- Rutas públicas ----------
-@app.route("/")
-def inicio():
-    destacados = (publicados()
-                  .order_by(Articulo.destacado.desc(), Articulo.fecha_publicacion.desc())
-                  .limit(3).all())
-    recientes = publicados().order_by(Articulo.fecha_publicacion.desc()).limit(8).all()
-    return render_template("inicio.html", destacados=destacados, recientes=recientes)
-
-
-@app.route("/categoria/<slug>")
-def categoria(slug):
-    cat = Categoria.query.filter_by(slug=slug).first_or_404()
-    lista = (publicados().filter_by(categoria_id=cat.id)
-             .order_by(Articulo.fecha_publicacion.desc()).all())
-    return render_template("categoria.html", cat=cat, articulos=lista)
+    for codigo in mensajes:
+        app.register_error_handler(codigo, manejador(codigo))
 
 
-@app.route("/zona/<slug>")
-def zona(slug):
-    u = Ubicacion.query.filter_by(slug=slug).first_or_404()
-    ids = [u.id] + [h.id for h in u.hijas]
-    orden = Articulo.fecha_publicacion.desc()
-    locales = publicados().filter(Articulo.ubicacion_id.in_(ids)).order_by(orden).all()
-    nacionales = publicados().filter(Articulo.ubicacion_id.is_(None)).order_by(orden).limit(6).all()
-    ciudades = [h for h in u.hijas
-                if publicados().filter_by(ubicacion_id=h.id).first() is not None]
-    return render_template("zona.html", ubic=u, locales=locales,
-                           nacionales=nacionales, ciudades=ciudades)
+def registrar_comandos(app):
+    @app.cli.command("iniciar")
+    def iniciar():
+        """Carga categorías, zonas y páginas iniciales (después de: flask db upgrade)."""
+        if Categoria.query.count() == 0:
+            for i, (slug, corto, nombre, icono, desc) in enumerate(CATEGORIAS_INICIALES):
+                db.session.add(Categoria(slug=slug, corto=corto, nombre=nombre,
+                                         icono=icono, descripcion=desc, orden=i))
+        if Pagina.query.count() == 0:
+            for slug, titulo, contenido in PAGINAS_INICIALES:
+                db.session.add(Pagina(slug=slug, titulo=titulo, contenido=contenido.strip()))
+        if Ubicacion.query.count() == 0:
+            regiones = {}
+            for nombre in REGIONES_INICIALES:
+                u = Ubicacion(slug=slugify(nombre), nombre=nombre, tipo="region")
+                db.session.add(u)
+                regiones[nombre] = u
+            db.session.flush()
+            for ciudad, region in CIUDADES_INICIALES:
+                db.session.add(Ubicacion(slug=slugify(ciudad), nombre=ciudad, tipo="ciudad",
+                                         padre_id=regiones[region].id))
+        db.session.commit()
+        click.echo("Datos iniciales listos.")
+
+    @app.cli.command("completar-paginas")
+    def completar_paginas():
+        """Agrega las páginas institucionales que falten, OCULTAS para que las revises.
+        Nunca modifica las páginas existentes."""
+        nuevas = 0
+        for slug, titulo, contenido in PAGINAS_NUEVAS:
+            if not Pagina.query.filter_by(slug=slug).first():
+                db.session.add(Pagina(slug=slug, titulo=titulo, contenido=contenido.strip(),
+                                      visible=False))
+                nuevas += 1
+        db.session.commit()
+        click.echo(f"{nuevas} página(s) agregada(s) como ocultas. Revísalas en el panel → Páginas.")
+
+    @app.cli.command("crear-admin")
+    @click.option("--nombre", prompt=True)
+    @click.option("--email", prompt=True)
+    @click.password_option()
+    def crear_admin(nombre, email, password):
+        """Crea el usuario administrador."""
+        if len(password) < 8:
+            raise click.ClickException("La contraseña debe tener mínimo 8 caracteres.")
+        u = Usuario(nombre=nombre, email=email.strip().lower(), rol="admin")
+        u.set_password(password)
+        db.session.add(u)
+        db.session.commit()
+        click.echo("Administrador creado.")
+
+    @app.cli.command("respaldo")
+    @click.option("--carpeta", default=os.path.join(BASE, "respaldos"))
+    def respaldo(carpeta):
+        """Copia verificada de la base SQLite en respaldos/ (no sobrescribe nada)."""
+        uri = app.config["SQLALCHEMY_DATABASE_URI"]
+        if not uri.startswith("sqlite:///"):
+            raise click.ClickException("Solo para SQLite. En PostgreSQL usa pg_dump.")
+        origen = uri.replace("sqlite:///", "", 1)
+        os.makedirs(carpeta, exist_ok=True)
+        destino = os.path.join(carpeta, f"porsiacaso_{ahora():%Y%m%d_%H%M%S}.db")
+        if os.path.exists(destino):
+            raise click.ClickException("Ya existe un respaldo con ese nombre; espera un segundo.")
+        src, dst = sqlite3.connect(origen), sqlite3.connect(destino)
+        with dst:
+            src.backup(dst)
+        estado = dst.execute("pragma integrity_check").fetchone()[0]
+        src.close()
+        dst.close()
+        with open(destino, "rb") as f:
+            huella = hashlib.sha256(f.read()).hexdigest()
+        click.echo(f"Respaldo: {destino}\nIntegridad: {estado}\nSHA-256: {huella}")
 
 
-@app.route("/articulo/<slug>")
-def articulo(slug):
-    a = publicados().filter_by(slug=slug).first_or_404()
-    a.visitas = (a.visitas or 0) + 1
-    db.session.commit()
-
-    orden = Articulo.fecha_publicacion.desc()
-    rel = (publicados().filter(Articulo.id != a.id, Articulo.categoria_id == a.categoria_id)
-           .order_by(orden).limit(3).all())
-    if len(rel) < 3:
-        excluir = [a.id] + [r.id for r in rel]
-        rel += publicados().filter(Articulo.id.notin_(excluir)).order_by(orden).limit(3 - len(rel)).all()
-    return render_template("articulo.html", a=a, cat=a.categoria, relacionados=rel)
-
-
-@app.route("/buscar")
-def buscar():
-    q = request.args.get("q", "").strip()
-    lista = []
-    if q:
-        like = f"%{q}%"
-        lista = (publicados()
-                 .filter(or_(Articulo.titulo.ilike(like), Articulo.resumen.ilike(like)))
-                 .order_by(Articulo.fecha_publicacion.desc()).all())
-    return render_template("categoria.html", cat=None, articulos=lista, q=q)
-
-
-# ---------- SEO ----------
-@app.route("/sitemap.xml")
-def sitemap():
-    urls = [(abs_url("inicio"), None)]
-    for c in Categoria.query.filter_by(visible=True).order_by(Categoria.orden).all():
-        if publicados().filter_by(categoria_id=c.id).count():
-            urls.append((abs_url("categoria", slug=c.slug), None))
-    for g in ubicaciones_activas():
-        urls.append((abs_url("zona", slug=g["region"].slug), None))
-        for c in g["ciudades"]:
-            urls.append((abs_url("zona", slug=c.slug), None))
-    for p in Pagina.query.all():
-        urls.append((abs_url("pagina", slug=p.slug), p.actualizado))
-    for a in publicados().order_by(Articulo.fecha_publicacion.desc()).all():
-        urls.append((abs_url("articulo", slug=a.slug), a.actualizado or a.creado))
-    return Response(render_template("sitemap.xml", urls=urls), mimetype="application/xml")
-
-
-@app.route("/robots.txt")
-def robots():
-    txt = f"User-agent: *\nDisallow: /admin/\n\nSitemap: {abs_url('sitemap')}\n"
-    return Response(txt, mimetype="text/plain")
-
-
-# ---------- Páginas fijas (al final, es la ruta comodín) ----------
-@app.route("/<slug>")
-def pagina(slug):
-    p = Pagina.query.filter_by(slug=slug).first_or_404()
-    return render_template("pagina.html", titulo=p.titulo, contenido=p.contenido)
-
-
-@app.errorhandler(404)
-def no_encontrado(e):
-    return render_template("pagina.html", titulo="Página no encontrada", noindex=True,
-                           contenido="<p>Lo que buscas no existe o fue movido.</p>"), 404
-
-
-@app.errorhandler(403)
-def prohibido(e):
-    return render_template("pagina.html", titulo="Sin permiso", noindex=True,
-                           contenido="<p>No tienes permiso para hacer esto.</p>"), 403
-
+app = crear_app()
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=os.environ.get("FLASK_DEBUG") == "1")

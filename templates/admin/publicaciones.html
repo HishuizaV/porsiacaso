@@ -1,0 +1,75 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Publicaciones{% endblock %}
+{% block content %}
+<div class="titulo-fila">
+    <div><h1>{{ TIPOS_ADMIN[f.tipo].plural if f.tipo in TIPOS_ADMIN else 'Publicaciones' }}</h1>
+        <p class="ayuda">{{ pag.total }} en total{{ '' if current_user.es_admin else ' (solo las tuyas)' }}.</p></div>
+    <a class="btn btn-primario" href="{{ url_for('admin.publicacion_form', tipo=f.tipo) if f.tipo in TIPOS_ADMIN else url_for('admin.nueva') }}">+ Nueva {{ TIPOS_ADMIN[f.tipo].nombre|lower if f.tipo in TIPOS_ADMIN else 'publicación' }}</a>
+</div>
+
+<form class="filtros-adm" method="get" role="search">
+    <label class="sr-only" for="fq">Buscar</label>
+    <input id="fq" type="search" name="q" value="{{ f.q }}" placeholder="Buscar por título, institución, lugar…">
+    <label class="sr-only" for="ft">Tipo</label>
+    <select id="ft" name="tipo"><option value="">Todos los tipos</option>
+        {% for k, t in TIPOS_ADMIN.items() %}<option value="{{ k }}" {{ 'selected' if f.tipo == k }}>{{ t.plural }}</option>{% endfor %}</select>
+    <label class="sr-only" for="fe">Estado</label>
+    <select id="fe" name="estado"><option value="">Todos los estados</option>
+        {% for k, n in estados %}<option value="{{ k }}" {{ 'selected' if f.estado == k }}>{{ n }}</option>{% endfor %}</select>
+    <label class="sr-only" for="fo">Orden</label>
+    <select id="fo" name="orden">
+        {% for k, n in [('actualizado','Última edición'),('creado','Creación'),('publicado','Fecha de publicación'),('limite','Fecha límite'),('titulo','Título A-Z')] %}
+        <option value="{{ k }}" {{ 'selected' if f.orden == k }}>{{ n }}</option>{% endfor %}</select>
+    <button class="btn btn-oscuro" type="submit">Filtrar</button>
+    {% if f.q or f.tipo or f.estado or f.alerta %}<a class="btn" href="{{ url_for('admin.publicaciones') }}">Limpiar</a>{% endif %}
+</form>
+
+{% if pag.items %}
+<div class="tabla-wrap">
+<table>
+    <thead><tr><th>Título</th><th>Tipo</th><th>Estado</th><th>Fecha límite</th><th>Autor</th><th>Acciones</th></tr></thead>
+    <tbody>
+    {% for a in pag.items %}
+    <tr>
+        <td><a href="{{ url_for('admin.publicacion_form', id=a.id) }}"><strong>{{ a.titulo }}</strong></a>{% if a.destacado %} ★{% endif %}
+            <br><small>{{ a.institucion.nombre if a.institucion }}{% if a.ubicacion %} · 📍 {{ a.ubicacion.nombre }}{% endif %} · {{ a.visitas or 0 }} visitas</small></td>
+        <td>{{ a.info.nombre }}</td>
+        <td><span class="estado {{ 'programada' if a.programada else a.estado }}">{{ 'Programada' if a.programada else OPC.ESTADOS.get(a.estado, a.estado) }}</span>
+            {% if a.situacion in ('vencida','cerrada') %}<br><small>{{ a.situacion|capitalize }}</small>{% endif %}</td>
+        <td>{{ a.fecha_limite.strftime('%d/%m/%Y') if a.fecha_limite else '—' }}</td>
+        <td>{{ a.autor.nombre }}</td>
+        <td>
+            <div class="acciones">
+                <a href="{{ url_for('admin.publicacion_form', id=a.id) }}">Editar</a>
+                {% if a.estado == 'publicado' and not a.programada %}<a href="{{ url_publicacion(a) }}" target="_blank" rel="noopener">Ver ↗</a>
+                {% else %}<a href="{{ url_for('admin.vista_previa', id=a.id) }}" target="_blank" rel="noopener">Vista previa ↗</a>{% endif %}
+                <form method="post" action="{{ url_for('admin.publicacion_accion', id=a.id) }}">
+                    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                    <input type="hidden" name="volver" value="{{ request.full_path }}">
+                    {% if a.estado == 'publicado' %}
+                    <button class="link" name="accion" value="despublicar" data-confirmar="¿Retirar del sitio? Pasará a borrador.">Despublicar</button>
+                    <button class="link" name="accion" value="archivar" data-confirmar="¿Archivar? Saldrá de listados y buscadores, pero su dirección seguirá funcionando.">Archivar</button>
+                    {% else %}
+                    <button class="link" name="accion" value="publicar">Publicar</button>
+                    {% endif %}
+                    <button class="link" name="accion" value="duplicar">Duplicar</button>
+                    <button class="link peligro" name="accion" value="eliminar" data-confirmar="¿Eliminar definitivamente «{{ a.titulo }}»? No se puede deshacer.">Eliminar</button>
+                </form>
+            </div>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% if pag.pages > 1 %}
+<p class="acciones" style="margin-top:14px">
+    {% if pag.has_prev %}<a class="btn" href="{{ url_for('admin.publicaciones', page=pag.prev_num, **request.args.to_dict()|dict_sin_page) }}">‹ Anterior</a>{% endif %}
+    <span class="ayuda">Página {{ pag.page }} de {{ pag.pages }}</span>
+    {% if pag.has_next %}<a class="btn" href="{{ url_for('admin.publicaciones', page=pag.next_num, **request.args.to_dict()|dict_sin_page) }}">Siguiente ›</a>{% endif %}
+</p>
+{% endif %}
+{% else %}
+<div class="caja"><p>No hay publicaciones con estos filtros.</p></div>
+{% endif %}
+{% endblock %}

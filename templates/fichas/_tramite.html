@@ -1,0 +1,13 @@
+{% from '_macros.html' import lista %}
+{% if d.finalidad %}<div class="aviso aviso-info"><strong>¿Para qué sirve?</strong>{{ d.finalidad }}</div>{% endif %}
+{% if d.documentos or d.requisitos %}
+<section class="seccion-ficha" aria-labelledby="t-doc">
+    <h2 id="t-doc">Qué necesitas</h2>
+    {% if d.documentos %}<h3 class="subtitulo">Documentos</h3>{{ lista(d.documentos|lineas) }}{% endif %}
+    {% if d.requisitos %}<h3 class="subtitulo">Otros requisitos</h3>{{ lista(d.requisitos|lineas) }}{% endif %}
+</section>
+{% endif %}
+{% if d.pasos %}
+<section class="seccion-ficha" aria-labelledby="t-pasos"><h2 id="t-pasos">Paso a paso</h2>{{ lista(d.pasos|lineas, 'pasos') }}</section>
+{% endif %}
+{% if d.lugar_atencion %}<div class="aviso aviso-info"><strong>Dónde se realiza</strong>{{ d.lugar_atencion }}</div>{% endif %}

@@ -1,0 +1,9 @@
+<div class="repetidor-fila">
+    <label class="campo" for="faq-{{ i }}-p"><span>Pregunta</span>
+        <input id="faq-{{ i }}-p" name="faq-{{ i }}-p" value="{{ f.p }}" maxlength="300" placeholder="Ej.: ¿Puedo postular si estoy estudiando?">
+    </label>
+    <label class="campo" for="faq-{{ i }}-r"><span>Respuesta</span>
+        <textarea id="faq-{{ i }}-r" name="faq-{{ i }}-r" rows="2" maxlength="2000">{{ f.r }}</textarea>
+    </label>
+    <div class="extra"><button type="button" class="link peligro" data-quitar>Quitar esta pregunta</button></div>
+</div>

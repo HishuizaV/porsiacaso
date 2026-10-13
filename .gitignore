@@ -8,4 +8,5 @@ instance/
 *.sqlite3
 static/uploads/
 .env
-.vscode/
+.vscode/respaldos/
+.pytest_cache/

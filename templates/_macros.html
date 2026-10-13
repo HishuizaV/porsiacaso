@@ -1,44 +1,115 @@
-{% macro foto(a, eager=False) %}
+{% macro foto(a, eager=False, miniatura=True) %}
 {% if a.imagen %}
-<img src="{{ url_for('static', filename='uploads/' + a.imagen) }}"
-     alt="{{ a.imagen_alt or a.titulo }}"
-     loading="{{ 'eager' if eager else 'lazy' }}" decoding="async">
+<img src="{{ url_imagen(a, miniatura=miniatura) }}" alt="{{ a.imagen_alt or '' }}"
+     {% if a.imagen_ancho and a.imagen_alto %}width="{{ a.imagen_ancho }}" height="{{ a.imagen_alto }}"{% endif %}
+     loading="{{ 'eager' if eager else 'lazy' }}" decoding="async"{% if eager %} fetchpriority="high"{% endif %}>
 {% else %}
-<div class="sin-foto"><span>{{ a.categoria.icono }}</span></div>
+<div class="sin-foto" aria-hidden="true">{{ a.info.icono }}</div>
 {% endif %}
 {% endmacro %}
 
-{% macro tarjeta(a, grande=False) %}
-<article class="tarjeta {{ 'grande' if grande }}">
-    <a href="{{ url_for('articulo', slug=a.slug) }}">
-        <div class="tarjeta-img">
-            <span class="badge">{{ a.categoria.corto }}</span>
-            {{ foto(a) }}
+{% macro logo_org(a) %}
+<div class="fila-logo" aria-hidden="true">
+    {% if a.institucion and a.institucion.logo %}
+    <img src="{{ url_for('static', filename='uploads/logos/' + a.institucion.logo) }}" alt="" width="48" height="48" loading="lazy">
+    {% else %}{{ a.info.icono }}{% endif %}
+</div>
+{% endmacro %}
+
+{% macro estado(a) %}
+{% set s = a.situacion %}
+{% if s == 'abierta' %}<span class="chip chip-abierta">● Abierta</span>
+{% elif s == 'por_confirmar' %}<span class="chip chip-por_confirmar">Por confirmar</span>
+{% elif s == 'vencida' %}<span class="chip chip-vencida">Vencida</span>
+{% elif s == 'cerrada' %}<span class="chip chip-cerrada">Cerrada</span>
+{% elif s == 'archivada' %}<span class="chip chip-archivada">Archivada</span>
+{% endif %}
+{% if a.dias_restantes is not none and a.situacion == 'abierta' and a.dias_restantes <= 7 %}
+<span class="chip chip-cierra">{% if a.dias_restantes == 0 %}Cierra hoy{% elif a.dias_restantes == 1 %}Cierra mañana{% else %}Cierra en {{ a.dias_restantes }} días{% endif %}</span>
+{% endif %}
+{% endmacro %}
+
+{% macro fila(a, nivel=3) %}
+<article class="fila">
+    {{ logo_org(a) }}
+    <div>
+        <h{{ nivel }}><a href="{{ url_publicacion(a) }}">{{ a.titulo }}</a></h{{ nivel }}>
+        {% if a.institucion %}<p class="fila-org">{{ a.institucion.nombre }}</p>{% endif %}
+        <div class="fila-datos">
+            {% if a.ubicacion %}<span>📍 {{ a.ubicacion.nombre }}</span>{% elif a.es_oportunidad %}<span>📍 Todo el Perú</span>{% endif %}
+            {% set d = a.detalle %}
+            {% if a.tipo in ('empleo', 'convocatoria') and d %}
+                {% if d.modalidad %}<span>{{ {'presencial':'Presencial','remoto':'Remoto','hibrido':'Híbrido'}[d.modalidad] }}</span>{% endif %}
+                {% if d.sueldo_texto %}<span>💵 {{ d.sueldo_texto }}</span>{% endif %}
+                {% if d.vacantes %}<span>{{ d.vacantes }} vacante{{ 's' if d.vacantes != 1 }}</span>{% endif %}
+            {% elif a.tipo == 'curso' and d and d.costo == 'gratuito' %}<span>Gratuito</span>
+            {% elif a.tipo == 'bono' and d and d.monto %}<span>💵 {{ d.monto }}</span>
+            {% endif %}
+            {% if a.fecha_limite %}<span>Hasta el {{ a.fecha_limite.strftime('%d/%m/%Y') }}</span>{% endif %}
         </div>
-        <div class="tarjeta-body">
-            <h3>{{ a.titulo }}</h3>
-            <p>{{ a.resumen }}</p>
-            <small>{{ a.fecha }} · {{ a.lectura }} min de lectura{% if a.ubicacion %} · 📍 {{ a.ubicacion.nombre }}{% endif %}</small>
-        </div>
-    </a>
+        <div class="fila-chips"><span class="chip">{{ a.info.nombre }}</span>{{ estado(a) }}</div>
+    </div>
 </article>
 {% endmacro %}
 
-{% macro item(a) %}
-<a class="item" href="{{ url_for('articulo', slug=a.slug) }}">
-    <div class="item-img">{{ foto(a) }}</div>
-    <div>
-        <span class="item-cat">{{ a.categoria.corto }}</span>
-        <h4>{{ a.titulo }}</h4>
-        <small>{{ a.fecha }}</small>
+{% macro tarjeta(a, nivel=3) %}
+<article class="tarjeta">
+    <div class="tarjeta-img">{{ foto(a) }}</div>
+    <div class="tarjeta-cuerpo">
+        <div class="tarjeta-chips"><span class="chip">{{ a.info.nombre }}</span>{{ estado(a) }}</div>
+        <h{{ nivel }}><a href="{{ url_publicacion(a) }}">{{ a.titulo }}</a></h{{ nivel }}>
+        {% if a.resumen %}<p>{{ a.resumen|truncate(140) }}</p>{% endif %}
+        <div class="tarjeta-meta">
+            <span>{{ a.fecha }}</span>
+            {% if a.ubicacion %}<span>📍 {{ a.ubicacion.nombre }}</span>{% endif %}
+        </div>
     </div>
-</a>
+</article>
 {% endmacro %}
 
-{% macro anuncio(tipo) %}
-{% if ANUNCIOS == 'maqueta' %}
-<aside class="ad ad-{{ tipo }}" aria-label="Publicidad">
-    <span>Publicidad {{ tipo }}</span>
+{% macro anuncio(posicion) %}
+{% if PUBLICIDAD.modo == 'adsense' and PUBLICIDAD.slots.get(posicion) %}
+<aside class="publicidad publicidad-{{ posicion }}" aria-label="Publicidad">
+    <span class="publicidad-etiqueta">Publicidad</span>
+    <ins class="adsbygoogle" style="display:block" data-ad-client="{{ PUBLICIDAD.cliente }}"
+         data-ad-slot="{{ PUBLICIDAD.slots[posicion] }}" data-ad-format="auto" data-full-width-responsive="true"></ins>
+    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+</aside>
+{% elif PUBLICIDAD.modo == 'maqueta' and ES_ADMIN %}
+<aside class="publicidad publicidad-{{ posicion }}" aria-hidden="true">
+    <div class="publicidad-maqueta">Espacio de anuncio «{{ posicion }}» · maqueta visible solo para administradores</div>
 </aside>
 {% endif %}
+{% endmacro %}
+
+{% macro paginacion(pag) %}
+{% if pag.pages > 1 %}
+<nav class="paginacion" aria-label="Paginación">
+    {% if pag.has_prev %}<a href="{{ url_con(page=pag.prev_num) }}" rel="prev">‹ Anterior</a>{% else %}<span class="deshabilitado">‹ Anterior</span>{% endif %}
+    {% for n in pag.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=1) %}
+        {% if n %}
+            {% if n == pag.page %}<span aria-current="page">{{ n }}</span>{% else %}<a href="{{ url_con(page=n) }}">{{ n }}</a>{% endif %}
+        {% else %}<span class="deshabilitado">…</span>{% endif %}
+    {% endfor %}
+    {% if pag.has_next %}<a href="{{ url_con(page=pag.next_num) }}" rel="next">Siguiente ›</a>{% else %}<span class="deshabilitado">Siguiente ›</span>{% endif %}
+</nav>
+{% endif %}
+{% endmacro %}
+
+{% macro migas(items) %}
+<nav class="migas" aria-label="Ruta de navegación">
+    <ol>
+        {% for nombre, url in items %}
+        <li>{% if url and not loop.last %}<a href="{{ url }}">{{ nombre }}</a>{% else %}<span aria-current="page">{{ nombre|truncate(60) }}</span>{% endif %}</li>
+        {% endfor %}
+    </ol>
+</nav>
+{% endmacro %}
+
+{% macro lista(items, clase='lista-check') %}
+<ul class="{{ clase }}">{% for i in items %}<li>{{ i }}</li>{% endfor %}</ul>
+{% endmacro %}
+
+{% macro jsonld(datos) %}
+<script type="application/ld+json">{{ datos|tojson }}</script>
 {% endmacro %}

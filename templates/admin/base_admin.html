@@ -5,40 +5,79 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <title>{% block title %}Panel{% endblock %} | Por Si Acaso</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon-32.png') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
     {% block head %}{% endblock %}
 </head>
 <body>
-
 {% if current_user.is_authenticated %}
-<header class="adm-bar">
-    <a href="{{ url_for('admin.panel') }}" class="adm-marca">Por Si Acaso · Panel</a>
-    <nav>
-        <a href="{{ url_for('admin.panel') }}">Artículos</a>
-        <a href="{{ url_for('admin.articulo_form') }}">+ Nuevo</a>
-        {% if current_user.es_admin %}
-        <a href="{{ url_for('admin.categorias_lista') }}">Categorías</a>
-        <a href="{{ url_for('admin.ubicaciones_lista') }}">Zonas</a>
-        <a href="{{ url_for('admin.paginas') }}">Páginas</a>
-        <a href="{{ url_for('admin.usuarios') }}">Usuarios</a>
-        {% endif %}
-        <a href="{{ url_for('admin.cuenta') }}">Mi cuenta</a>
-        <a href="{{ url_for('inicio') }}" target="_blank">Ver sitio ↗</a>
-    </nav>
-    <form method="post" action="{{ url_for('admin.logout') }}">
-        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-        <button class="link">Salir ({{ current_user.nombre }})</button>
-    </form>
-</header>
-{% endif %}
-
-<main class="adm-main">
+{% set ep = request.endpoint %}
+{% macro item(endpoint, texto) %}<a href="{{ url_for(endpoint) }}" {% if ep == endpoint and not request.args.get('tipo') %}aria-current="page"{% endif %}>{{ texto }}</a>{% endmacro %}
+<div class="adm">
+    <aside class="adm-lateral">
+        <div class="adm-top">
+            <a href="{{ url_for('admin.panel') }}" class="adm-marca"><img src="{{ url_for('static', filename='img/marca-icono.png') }}" alt="" width="32" height="32">Panel Por Si Acaso</a>
+            <button class="adm-menu-btn" type="button" aria-controls="admNav" aria-expanded="false" onclick="var n=document.getElementById('admNav');var o=n.classList.toggle('abierto');this.setAttribute('aria-expanded',o)">Menú</button>
+        </div>
+        <nav class="adm-nav" id="admNav" aria-label="Menú del panel">
+            <a class="nuevo" href="{{ url_for('admin.nueva') }}">+ Nueva publicación</a>
+            <h4>Panel principal</h4>
+            {{ item('admin.panel', 'Resumen') }}
+            <h4>Contenido</h4>
+            {{ item('admin.publicaciones', 'Todas las publicaciones') }}
+            <a href="{{ url_for('admin.publicaciones', tipo='empleo') }}">Empleos</a>
+            <a href="{{ url_for('admin.publicaciones', tipo='beca') }}">Becas</a>
+            <a href="{{ url_for('admin.publicaciones', tipo='curso') }}">Cursos</a>
+            <a href="{{ url_for('admin.publicaciones', tipo='bono') }}">Bonos</a>
+            <a href="{{ url_for('admin.publicaciones', tipo='tramite') }}">Trámites</a>
+            <a href="{{ url_for('admin.publicaciones', tipo='guia') }}">Guías</a>
+            <a href="{{ url_for('admin.publicaciones', tipo='noticia') }}">Noticias</a>
+            <a href="{{ url_for('admin.publicaciones', estado='borrador') }}">Borradores</a>
+            <h4>Organización</h4>
+            {{ item('admin.instituciones', 'Instituciones y empresas') }}
+            {% if current_user.es_admin %}
+            {{ item('admin.categorias_lista', 'Categorías') }}
+            {{ item('admin.ubicaciones_lista', 'Regiones y ciudades') }}
+            <h4>Sitio</h4>
+            {{ item('admin.paginas', 'Páginas institucionales') }}
+            {{ item('admin.configuracion', 'Configuración') }}
+            <h4>Administración</h4>
+            {{ item('admin.usuarios', 'Usuarios y roles') }}
+            {{ item('admin.registros', 'Registro de actividad') }}
+            {% endif %}
+            {{ item('admin.cuenta', 'Mi cuenta') }}
+            <a href="{{ url_for('web.inicio') }}" target="_blank" rel="noopener">Ver sitio ↗</a>
+            <form method="post" action="{{ url_for('admin.logout') }}">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <button class="link-nav" type="submit">Salir</button>
+            </form>
+            <p class="adm-usuario">{{ current_user.nombre }} · {{ 'Administrador' if current_user.es_admin else 'Editor' }}</p>
+        </nav>
+    </aside>
+    <main class="adm-main">
+        {% with mensajes = get_flashed_messages(with_categories=true) %}
+            {% for cat, msg in mensajes %}<div class="flash {{ cat }}" role="{{ 'alert' if cat == 'error' else 'status' }}">{{ msg }}</div>{% endfor %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </main>
+</div>
+{% else %}
+<main>
     {% with mensajes = get_flashed_messages(with_categories=true) %}
-        {% for cat, msg in mensajes %}<div class="flash {{ cat }}">{{ msg }}</div>{% endfor %}
+        <div style="max-width:380px;margin:20px auto 0">{% for cat, msg in mensajes %}<div class="flash {{ cat }}">{{ msg }}</div>{% endfor %}</div>
     {% endwith %}
-    {% block content %}{% endblock %}
+    {% block login %}{% endblock %}
 </main>
-
+{% endif %}
+<script>
+// Confirmación para acciones destructivas: <form data-confirmar="¿Seguro?">
+document.addEventListener("submit", function (e) {
+    var f = e.target, msg = f.getAttribute("data-confirmar");
+    var b = e.submitter;
+    if (b && b.getAttribute("data-confirmar")) msg = b.getAttribute("data-confirmar");
+    if (msg && !window.confirm(msg)) e.preventDefault();
+}, true);
+</script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

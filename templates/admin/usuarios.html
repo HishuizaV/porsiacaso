@@ -1,48 +1,41 @@
 {% extends "admin/base_admin.html" %}
 {% block title %}Usuarios{% endblock %}
 {% block content %}
-<h1>Usuarios</h1>
+<h1>Usuarios y roles</h1>
+<p class="ayuda" style="margin-bottom:14px"><strong>Editor:</strong> crea y edita sus propias publicaciones. <strong>Administrador:</strong> todo el sitio, configuración y usuarios.</p>
 
-<form method="post" class="form-art caja">
+<form method="post">
     <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-    <h3>Dar acceso a alguien</h3>
-    <div class="fila">
-        <label>Nombre <input name="nombre" required></label>
-        <label>Correo <input type="email" name="email" required></label>
-    </div>
-    <div class="fila">
-        <label>Contraseña (mín. 8) <input type="password" name="password" minlength="8" required></label>
-        <label>Rol
-            <select name="rol">
-                <option value="editor">Editor (solo sus artículos)</option>
-                <option value="admin">Administrador (todo)</option>
-            </select>
-        </label>
-    </div>
-    <button class="btn-adm">Crear usuario</button>
+    <fieldset><legend>Dar acceso a alguien</legend>
+        <div class="campos">
+            <label class="campo" for="nombre"><span>Nombre</span><input id="nombre" name="nombre" required></label>
+            <label class="campo" for="email"><span>Correo</span><input id="email" type="email" name="email" required></label>
+            <label class="campo" for="password"><span>Contraseña inicial (mín. 8)</span><input id="password" type="password" name="password" minlength="8" required autocomplete="new-password"></label>
+            <label class="campo" for="rol"><span>Rol</span>
+                <select id="rol" name="rol"><option value="editor">Editor</option><option value="admin">Administrador</option></select></label>
+        </div>
+        <button class="btn btn-primario" style="margin-top:14px" type="submit">Crear usuario</button>
+    </fieldset>
 </form>
 
-<div class="tabla-wrap">
-<table>
-    <thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th></th></tr></thead>
-    <tbody>
-    {% for u in usuarios %}
-        <tr>
-            <td>{{ u.nombre }}</td>
-            <td>{{ u.email }}</td>
-            <td>{{ u.rol }}</td>
-            <td>{{ 'Activo' if u.activo else 'Desactivado' }}</td>
-            <td class="acciones">
-                {% if u.id != current_user.id %}
-                <form method="post" action="{{ url_for('admin.usuario_activo', id=u.id) }}">
-                    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-                    <button class="link">{{ 'Desactivar' if u.activo else 'Activar' }}</button>
-                </form>
-                {% endif %}
-            </td>
-        </tr>
-    {% endfor %}
-    </tbody>
-</table>
-</div>
+<div class="tabla-wrap"><table>
+    <thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Publicaciones</th><th></th></tr></thead>
+    <tbody>{% for u in usuarios %}<tr>
+        <td>{{ u.nombre }}</td><td>{{ u.email }}</td>
+        <td>{% if u.id != current_user.id %}
+            <form method="post" action="{{ url_for('admin.usuario_rol', id=u.id) }}" class="acciones">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <label class="sr-only" for="rol-{{ u.id }}">Rol</label>
+                <select id="rol-{{ u.id }}" name="rol"><option value="editor" {{ 'selected' if u.rol == 'editor' }}>Editor</option><option value="admin" {{ 'selected' if u.rol == 'admin' }}>Administrador</option></select>
+                <button class="link">Cambiar</button></form>
+            {% else %}{{ 'Administrador' if u.es_admin else 'Editor' }} (tú){% endif %}</td>
+        <td>{{ 'Activo' if u.activo else 'Desactivado' }}</td>
+        <td>{{ conteo.get(u.id, 0) }}</td>
+        <td>{% if u.id != current_user.id %}
+            <form method="post" action="{{ url_for('admin.usuario_activo', id=u.id) }}" {% if u.activo %}data-confirmar="¿Desactivar el acceso de {{ u.nombre }}?"{% endif %}>
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <button class="link {{ 'peligro' if u.activo }}">{{ 'Desactivar' if u.activo else 'Activar' }}</button></form>
+            {% endif %}</td>
+    </tr>{% endfor %}</tbody>
+</table></div>
 {% endblock %}

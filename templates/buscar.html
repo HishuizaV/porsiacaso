@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from '_macros.html' import fila, paginacion with context %}
+
+{% block title %}{% if q %}Resultados para «{{ q }}»{% else %}Buscar{% endif %} | Por Si Acaso{% endblock %}
+{% block robots %}noindex, follow{% endblock %}
+{% block canonical %}{{ abs_url('web.buscar') }}{% endblock %}
+
+{% block content %}
+<section class="encabezado">
+    <div class="contenedor">
+        <h1>{% if q %}Resultados para «{{ q }}»{% else %}Buscar en Por Si Acaso{% endif %}</h1>
+        <form class="portada-buscar" action="{{ url_for('web.buscar') }}" method="get" role="search" style="border:1px solid var(--borde-fuerte)">
+            <label class="sr-only" for="q-pagina">Buscar</label>
+            <input id="q-pagina" type="search" name="q" value="{{ q }}" maxlength="100" placeholder="Ej.: trabajo en Chiclayo, beca, DNI">
+            <button class="boton boton-primario" type="submit">Buscar</button>
+        </form>
+        {% if q %}
+        <div class="chips-region" aria-label="Filtrar por tipo">
+            <a class="chip chip-link" href="{{ url_for('web.buscar', q=q) }}" {% if not tipo %}aria-current="true"{% endif %}>Todo</a>
+            {% for k, t in MENU %}
+            <a class="chip chip-link" href="{{ url_for('web.buscar', q=q, tipo=k) }}" {% if tipo == k %}aria-current="true"{% endif %}>{{ t.plural }}</a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</section>
+<div class="contenedor">
+    <section class="bloque" aria-label="Resultados">
+    {% if pag is none %}
+        <div class="vacio"><strong>¿Qué necesitas encontrar?</strong>Escribe una palabra: el buscador no distingue tildes ni mayúsculas.</div>
+    {% elif pag.items %}
+        <p class="resumen-resultados">{{ pag.total }} resultado{{ 's' if pag.total != 1 }} (incluye vencidas, marcadas como tales)</p>
+        <div class="lista-oportunidades">{% for a in pag.items %}{{ fila(a, nivel=2) }}{% endfor %}</div>
+        {{ paginacion(pag) }}
+    {% else %}
+        <div class="vacio"><strong>No encontramos resultados para «{{ q }}».</strong>Prueba con menos palabras o con un sinónimo (por ejemplo «trabajo» en lugar de «chamba»).</div>
+    {% endif %}
+    </section>
+</div>
+{% endblock %}

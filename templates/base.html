@@ -3,138 +3,115 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#d91023">
-
-    <title>{% block title %}Por Si Acaso | Información útil para Perú{% endblock %}</title>
-    <meta name="description" content="{% block description %}Empleos, becas, beneficios, trámites, turismo y actualidad del Perú, explicados sin vueltas.{% endblock %}">
+    <meta name="theme-color" content="#141b26">
+    <title>{% block title %}Por Si Acaso | Empleos, becas, bonos y trámites en Perú{% endblock %}</title>
+    <meta name="description" content="{% block description %}Empleos, becas, cursos, bonos y trámites del Perú con fuente oficial, requisitos y fechas, explicados sin vueltas.{% endblock %}">
     <meta name="robots" content="{% block robots %}index, follow, max-image-preview:large{% endblock %}">
     <link rel="canonical" href="{% block canonical %}{{ SITE_URL }}{{ request.path }}{% endblock %}">
+    {% if AJUSTES.google_verificacion %}<meta name="google-site-verification" content="{{ AJUSTES.google_verificacion }}">{% endif %}
+    {% if PUBLICIDAD.cliente %}<meta name="google-adsense-account" content="{{ PUBLICIDAD.cliente }}">{% endif %}
 
-    <!-- Open Graph / redes sociales -->
     <meta property="og:site_name" content="Por Si Acaso">
     <meta property="og:locale" content="es_PE">
     <meta property="og:type" content="{% block og_type %}website{% endblock %}">
     <meta property="og:title" content="{{ self.title() }}">
     <meta property="og:description" content="{{ self.description() }}">
     <meta property="og:url" content="{{ self.canonical() }}">
-    <meta property="og:image" content="{% block og_image %}{{ abs_url('static', filename='images/hero.png') }}{% endblock %}">
+    <meta property="og:image" content="{% block og_image %}{{ abs_url('static', filename='img/og-portada.jpg') }}{% endblock %}">
     <meta name="twitter:card" content="summary_large_image">
 
-    <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-
-    {% block jsonld %}
-    <script type="application/ld+json">
-    {{ {
-        "@context": "https://schema.org",
-        "@type": "Organization",
-        "name": "Por Si Acaso",
-        "url": SITE_URL,
-        "logo": abs_url('static', filename='images/logo.png')
-    } | tojson }}
-    </script>
-    {% endblock %}
+    {% if PUBLICIDAD.modo == 'adsense' %}
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={{ PUBLICIDAD.cliente }}" crossorigin="anonymous"></script>
+    {% endif %}
+    {% block jsonld %}{% endblock %}
 </head>
 <body>
+<a class="saltar" href="#contenido">Saltar al contenido</a>
 
-<div class="top-bar">
-    <div class="container top-bar-inner">
-        <span>Información verificada y útil para Perú 🇵🇪</span>
-        <span class="redes"><a href="#">Facebook</a> | <a href="#">Instagram</a> | <a href="#">YouTube</a></span>
-    </div>
-</div>
-
-<header class="site-header">
-    <div class="container header-inner">
-        <a href="{{ url_for('inicio') }}" class="logo">
-            <span class="logo-icono">
-                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="">
-            </span>
-            <span class="logo-texto">
-                <strong>Por <em>Si</em> Acaso</strong>
-                <small>Información útil para Perú</small>
-            </span>
+<header class="cabecera">
+    <div class="contenedor cabecera-fila">
+        <a href="{{ url_for('web.inicio') }}" class="marca" aria-label="Por Si Acaso, ir al inicio">
+            <img src="{{ url_for('static', filename='img/marca-icono.png') }}" alt="" width="40" height="40">
+            <span class="marca-texto"><strong>Por <span>Si</span> Acaso</strong><small>Información útil para Perú</small></span>
         </a>
-
-        <div class="header-der">
-
-            <details class="ubic">
-                <summary>📍 {{ ubic.nombre if (ubic is defined and ubic) else 'Todo el Perú' }} ▾</summary>
-                <div class="ubic-panel">
-                    <a href="{{ url_for('inicio') }}" class="ubic-todo">🇵🇪 Todo el Perú</a>
-                    {% for g in ZONAS %}
-                    <a href="{{ url_for('zona', slug=g.region.slug) }}" class="ubic-region">{{ g.region.nombre }}</a>
-                        {% for c in g.ciudades %}
-                        <a href="{{ url_for('zona', slug=c.slug) }}" class="ubic-ciudad">{{ c.nombre }}</a>
-                        {% endfor %}
-                    {% endfor %}
-                    {% if not ZONAS %}
-                    <span class="ubic-vacio">Pronto habrá información por zona.</span>
-                    {% endif %}
-                </div>
-            </details>
-
-            <form class="search" action="{{ url_for('buscar') }}" method="get">
-                <input type="search" name="q" placeholder="Buscar información..." aria-label="Buscar">
-            </form>
-
-            <button class="menu-btn" id="menuBtn" aria-label="Abrir menú" aria-expanded="false">☰</button>
-        </div>
+        <form class="buscador" action="{{ url_for('web.buscar') }}" method="get" role="search">
+            <label class="sr-only" for="q-cabecera">Buscar en el sitio</label>
+            <input id="q-cabecera" type="search" name="q" placeholder="Busca empleos, becas, trámites…" value="{{ q if q is defined and q else '' }}" maxlength="100">
+            <button type="submit" aria-label="Buscar">⌕</button>
+        </form>
+        <button class="menu-boton" id="menuBoton" aria-controls="nav" aria-expanded="false">☰ <span>Menú</span></button>
     </div>
-
-    <nav class="nav" id="nav">
-        <div class="container nav-inner">
-            {% set principales = CATEGORIAS[:7] %}
-            {% set extras = CATEGORIAS[7:] %}
-            <a href="{{ url_for('inicio') }}" class="{{ 'active' if request.endpoint == 'inicio' }}">Inicio</a>
-            {% for c in principales %}
-            <a href="{{ url_for('categoria', slug=c.slug) }}"
-               class="{{ 'active' if request.endpoint == 'categoria' and request.view_args.slug == c.slug }}">{{ c.corto }}</a>
-            {% endfor %}
-
-            {% if extras %}
-                {% for c in extras %}
-                <a class="solo-movil" href="{{ url_for('categoria', slug=c.slug) }}">{{ c.corto }}</a>
+    <nav class="nav" id="nav" aria-label="Secciones">
+        <div class="contenedor">
+            <form class="nav-buscar" action="{{ url_for('web.buscar') }}" method="get" role="search">
+                <label class="sr-only" for="q-menu">Buscar en el sitio</label>
+                <input id="q-menu" type="search" name="q" placeholder="¿Qué necesitas encontrar?" maxlength="100">
+            </form>
+            <ul class="nav-lista">
+                <li><a href="{{ url_for('web.inicio') }}" {% if request.endpoint == 'web.inicio' %}aria-current="page"{% endif %}>Inicio</a></li>
+                {% for clave, t in MENU %}
+                <li><a href="{{ url_for('web.seccion', tipo=clave) }}" {% if request.view_args and request.view_args.get('tipo') == clave %}aria-current="page"{% endif %}>{{ t.plural }}</a></li>
                 {% endfor %}
-                <details class="mas solo-desktop">
-                    <summary>Más ▾</summary>
-                    <div class="mas-panel">
-                        {% for c in extras %}
-                        <a href="{{ url_for('categoria', slug=c.slug) }}">{{ c.icono }} {{ c.nombre }}</a>
-                        {% endfor %}
-                    </div>
-                </details>
-            {% endif %}
+                {% if CATEGORIAS %}
+                <li>
+                    <details class="nav-temas">
+                        <summary>Temas ▾</summary>
+                        <ul class="nav-sub">
+                            {% for c in CATEGORIAS %}
+                            <li><a href="{{ url_for('web.categoria', slug=c.slug) }}">{{ c.icono }} {{ c.nombre }}</a></li>
+                            {% endfor %}
+                        </ul>
+                    </details>
+                </li>
+                {% endif %}
+            </ul>
         </div>
     </nav>
 </header>
 
-<main>
+{% block banner %}{% endblock %}
+<main id="contenido">
     {% block content %}{% endblock %}
 </main>
 
-<footer class="footer">
-    <div class="container footer-grid">
-        <div>
-            <strong class="footer-marca">Por Si Acaso</strong>
-            <p>Información útil, verificada y explicada sin vueltas para todo el Perú.</p>
+<footer class="pie">
+    <div class="contenedor">
+        <div class="pie-grid">
+            <div class="pie-marca">
+                <strong>Por Si Acaso</strong>
+                <p>Reunimos y explicamos oportunidades e información útil del Perú, siempre con enlace a la fuente oficial para que puedas confirmarla.</p>
+                {% if AJUSTES.contacto_email %}<p>Contacto: <a href="mailto:{{ AJUSTES.contacto_email }}">{{ AJUSTES.contacto_email }}</a></p>{% endif %}
+            </div>
+            {% if MENU %}
+            <div>
+                <h2>Secciones</h2>
+                <ul>{% for clave, t in MENU %}<li><a href="{{ url_for('web.seccion', tipo=clave) }}">{{ t.plural }}</a></li>{% endfor %}</ul>
+            </div>
+            {% endif %}
+            {% if CATEGORIAS %}
+            <div>
+                <h2>Temas</h2>
+                <ul>{% for c in CATEGORIAS %}<li><a href="{{ url_for('web.categoria', slug=c.slug) }}">{{ c.nombre }}</a></li>{% endfor %}</ul>
+            </div>
+            {% endif %}
+            <div>
+                <h2>Institucional</h2>
+                <ul>
+                    {% for p in PAGINAS %}<li><a href="{{ url_for('web.pagina', slug=p.slug) }}">{{ p.titulo }}</a></li>{% endfor %}
+                    {% for clave, nombre in [('facebook_url','Facebook'),('instagram_url','Instagram'),('tiktok_url','TikTok'),('youtube_url','YouTube')] %}
+                    {% if AJUSTES[clave] %}<li><a href="{{ AJUSTES[clave] }}" rel="noopener me" target="_blank">{{ nombre }}</a></li>{% endif %}
+                    {% endfor %}
+                </ul>
+            </div>
         </div>
-        <div>
-            <h4>Secciones</h4>
-            {% for c in CATEGORIAS %}
-            <a href="{{ url_for('categoria', slug=c.slug) }}">{{ c.corto }}</a>
-            {% endfor %}
-        </div>
-        <div>
-            <h4>Información</h4>
-            {% for p in PAGINAS %}
-            <a href="{{ url_for('pagina', slug=p.slug) }}">{{ p.titulo }}</a>
-            {% endfor %}
-        </div>
+        <p class="pie-legal">© {{ HOY.year }} Por Si Acaso. No somos una entidad del Estado ni intermediamos en postulaciones: confirma siempre la información en la fuente oficial enlazada en cada publicación.</p>
     </div>
-    <div class="footer-copy">© 2026 Por Si Acaso | Información útil para Perú 🇵🇪</div>
 </footer>
 
-<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% if AJUSTES.asistente_activo != '0' %}{% include "_asistente.html" %}{% endif %}
+<script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
 </body>
 </html>

@@ -1,0 +1,21 @@
+<div class="repetidor-fila enlace-fila">
+    <label class="campo" for="enlace-{{ i }}-tipo"><span>Botón</span>
+        <select id="enlace-{{ i }}-tipo" name="enlace-{{ i }}-tipo">
+            {% for k, n in enlaces_tipos.items() %}<option value="{{ k }}" {{ 'selected' if e.tipo == k }}>{{ n }}</option>{% endfor %}
+        </select>
+    </label>
+    <label class="campo" for="enlace-{{ i }}-etiqueta"><span>Texto del botón (opcional)</span>
+        <input id="enlace-{{ i }}-etiqueta" name="enlace-{{ i }}-etiqueta" value="{{ e.etiqueta }}" maxlength="80" placeholder="Se usa el texto de la izquierda">
+    </label>
+    <label class="campo" for="enlace-{{ i }}-url"><span>Enlace oficial</span>
+        <input id="enlace-{{ i }}-url" type="url" name="enlace-{{ i }}-url" value="{{ e.url }}" placeholder="https://…">
+    </label>
+    <div class="extra">
+        {% if e.archivo %}
+        <input type="hidden" name="enlace-{{ i }}-archivo" value="{{ e.archivo }}">
+        <span>📄 PDF subido: <a href="{{ url_for('static', filename='uploads/docs/' + e.archivo) }}" target="_blank" rel="noopener">ver</a></span>
+        {% endif %}
+        <label>{{ 'Reemplazar PDF' if e.archivo else 'o sube un PDF' }}: <input type="file" name="enlace-{{ i }}-pdf" accept="application/pdf"></label>
+        <button type="button" class="link peligro" data-quitar>Quitar este botón</button>
+    </div>
+</div>

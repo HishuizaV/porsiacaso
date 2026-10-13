@@ -1,0 +1,31 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}{{ 'Editar' if i else 'Nueva' }} institución{% endblock %}
+{% block content %}
+<h1>{{ 'Editar institución' if i else 'Nueva institución' }}</h1>
+<form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <fieldset><legend>Datos</legend>
+        <div class="campos">
+            <label class="campo" for="nombre"><span>Nombre oficial <span class="req">*</span></span>
+                <input id="nombre" name="nombre" value="{{ v.nombre }}" maxlength="200" required placeholder="Ej.: Municipalidad Provincial de Chiclayo"></label>
+            <label class="campo" for="siglas"><span>Siglas</span>
+                <input id="siglas" name="siglas" value="{{ v.siglas }}" maxlength="40" placeholder="Ej.: MPCH"></label>
+            <label class="campo" for="sector"><span>Sector</span>
+                <select id="sector" name="sector"><option value="">— No indicado —</option>
+                    {% for k, n in sectores %}<option value="{{ k }}" {{ 'selected' if v.sector == k }}>{{ n }}</option>{% endfor %}</select></label>
+            <label class="campo" for="web"><span>Web oficial</span>
+                <input id="web" type="url" name="web" value="{{ v.web }}" placeholder="https://…"><small>Se usa para identificar al empleador ante Google.</small></label>
+            <label class="campo campo-ancho" for="descripcion"><span>Descripción breve</span>
+                <textarea id="descripcion" name="descripcion" rows="3">{{ v.descripcion }}</textarea></label>
+            <div class="campo campo-ancho">
+                {% if i and i.logo %}<img class="mini" src="{{ url_for('static', filename='uploads/logos/' + i.logo) }}" alt="Logo actual">{% endif %}
+                <label class="campo" for="logo"><span>Logo oficial (PNG, JPG o WEBP)</span>
+                    <input id="logo" type="file" name="logo" accept="image/png,image/jpeg,image/webp">
+                    <small>Usa solo el logo oficial de la entidad.</small></label>
+            </div>
+        </div>
+    </fieldset>
+    <button class="btn btn-primario btn-grande" type="submit">Guardar</button>
+    <a class="btn btn-grande" href="{{ url_for('admin.instituciones') }}">Cancelar</a>
+</form>
+{% endblock %}

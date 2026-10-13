@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% from '_macros.html' import fila, tarjeta, anuncio, paginacion, migas, jsonld with context %}
+
+{% set titulo_h1 = info.plural ~ (' en ' ~ zona.nombre if zona else '') %}
+{% block title %}{{ titulo_h1 }}{% if pag.page > 1 %} · página {{ pag.page }}{% endif %} | Por Si Acaso{% endblock %}
+{% block description %}{% if zona %}{{ info.plural }} en {{ zona.nombre }}: {{ info.descripcion|lower }}{% else %}{{ info.descripcion }}{% endif %}{% endblock %}
+{% block robots %}{{ 'index, follow' if indexable else 'noindex, follow' }}{% endblock %}
+{% block canonical %}{% if zona %}{{ abs_url('web.seccion_region', tipo=tipo, zona_slug=zona.slug, page=pag.page if pag.page > 1 else None) }}{% else %}{{ abs_url('web.seccion', tipo=tipo, page=pag.page if pag.page > 1 else None) }}{% endif %}{% endblock %}
+{% block jsonld %}{{ jsonld(jsonld_migas) }}{% endblock %}
+
+{% block content %}
+<section class="encabezado">
+    <div class="contenedor">
+        {% set m = [("Inicio", url_for('web.inicio')), (info.plural, url_for('web.seccion', tipo=tipo) if zona else None)] %}
+        {% if zona %}{% set m = m + [(zona.nombre, None)] %}{% endif %}
+        {{ migas(m) }}
+        <h1>{{ info.icono }} {{ titulo_h1 }}</h1>
+        <p>{{ info.descripcion }}{% if info.oportunidad %} Cada publicación indica su fuente oficial y la fecha en que la revisamos.{% endif %}</p>
+        {% if regiones and not zona %}
+        <div class="chips-region" aria-label="Por región">
+            {% for r, n in regiones[:10] %}
+            <a class="chip chip-link" href="{{ url_for('web.seccion_region', tipo=tipo, zona_slug=r.slug) }}">{{ r.nombre }} · {{ n }}</a>
+            {% endfor %}
+        </div>
+        {% elif zona %}
+        <div class="chips-region"><a class="chip chip-link" href="{{ url_for('web.seccion', tipo=tipo) }}">← Todas las regiones</a></div>
+        {% endif %}
+    </div>
+</section>
+
+<div class="contenedor">
+    <div class="listado">
+        <details class="filtros" open id="filtros">
+            <summary>Filtrar resultados</summary>
+            <form method="get" action="{{ request.path }}">
+                <label class="campo">Palabras clave
+                    <input type="search" name="q" value="{{ filtros.q }}" maxlength="100" placeholder="{{ 'Ej.: asistente, contador' if es_empleo else 'Escribe una palabra' }}">
+                </label>
+                {% if not zona and regiones %}
+                <label class="campo">Región
+                    <select name="region">
+                        <option value="">Todo el Perú</option>
+                        {% for r, n in regiones %}<option value="{{ r.slug }}" {{ 'selected' if filtros.region == r.slug }}>{{ r.nombre }} ({{ n }})</option>{% endfor %}
+                    </select>
+                </label>
+                {% endif %}
+                {% if instituciones %}
+                <label class="campo">{{ 'Empresa o institución' if es_empleo else 'Institución' }}
+                    <select name="institucion">
+                        <option value="">Todas</option>
+                        {% for i in instituciones %}<option value="{{ i.slug }}" {{ 'selected' if filtros.institucion == i.slug }}>{{ i.nombre_corto }}</option>{% endfor %}
+                    </select>
+                </label>
+                {% endif %}
+                {% if es_empleo %}
+                <label class="campo">Sector
+                    <select name="sector"><option value="">Todos</option>
+                        {% for k, n in opciones.sector %}<option value="{{ k }}" {{ 'selected' if filtros.sector == k }}>{{ n }}</option>{% endfor %}
+                    </select>
+                </label>
+                <label class="campo">Modalidad
+                    <select name="modalidad"><option value="">Todas</option>
+                        {% for k, n in opciones.modalidad %}<option value="{{ k }}" {{ 'selected' if filtros.modalidad == k }}>{{ n }}</option>{% endfor %}
+                    </select>
+                </label>
+                <label class="campo">Nivel de estudios
+                    <select name="nivel"><option value="">Todos</option>
+                        {% for k, n in opciones.nivel %}<option value="{{ k }}" {{ 'selected' if filtros.nivel == k }}>{{ n }}</option>{% endfor %}
+                    </select>
+                </label>
+                {% endif %}
+                {% if tipo == 'curso' %}
+                <label class="campo">Costo
+                    <select name="costo"><option value="">Todos</option>
+                        {% for k, n in opciones.costo %}<option value="{{ k }}" {{ 'selected' if filtros.costo == k }}>{{ n }}</option>{% endfor %}
+                    </select>
+                </label>
+                {% endif %}
+                {% if info.oportunidad %}
+                <label class="campo">Vigencia
+                    <select name="vigencia">
+                        {% for k, n in opciones.vigencia %}<option value="{{ k }}" {{ 'selected' if filtros.vigencia == k }}>{{ n }}</option>{% endfor %}
+                    </select>
+                </label>
+                {% endif %}
+                <label class="campo">Ordenar por
+                    <select name="orden">
+                        {% for k, n in opciones.orden %}{% if k != 'cierre' or info.oportunidad %}<option value="{{ k }}" {{ 'selected' if filtros.orden == k }}>{{ n }}</option>{% endif %}{% endfor %}
+                    </select>
+                </label>
+                <div class="filtros-acciones">
+                    <button class="boton boton-primario" type="submit">Aplicar filtros</button>
+                    <a class="boton boton-suave" href="{{ request.path }}">Limpiar</a>
+                </div>
+            </form>
+        </details>
+
+        <section aria-labelledby="t-resultados">
+            <h2 id="t-resultados" class="sr-only">Resultados</h2>
+            <div class="resumen-resultados">
+                <span>{{ pag.total }} resultado{{ 's' if pag.total != 1 }}{% if filtros.vigencia == 'vigentes' %} vigente{{ 's' if pag.total != 1 }}{% endif %}</span>
+                {% if vencidas %}<a class="enlace" href="{{ url_con(vigencia='vencidas') }}">Ver {{ vencidas }} vencida{{ 's' if vencidas != 1 }} o cerrada{{ 's' if vencidas != 1 }}</a>{% endif %}
+            </div>
+            {% if pag.items %}
+                {% if info.oportunidad or tipo == 'tramite' %}
+                <div class="lista-oportunidades">
+                    {% for a in pag.items %}{{ fila(a) }}{% if loop.index == 6 %}{{ anuncio('superior') }}{% endif %}{% endfor %}
+                </div>
+                {% else %}
+                <div class="rejilla">{% for a in pag.items %}{{ tarjeta(a) }}{% endfor %}</div>
+                {% endif %}
+                {{ paginacion(pag) }}
+            {% else %}
+            <div class="vacio">
+                <strong>No hay {{ info.plural|lower }} que coincidan{% if zona %} en {{ zona.nombre }}{% endif %}.</strong>
+                {% if filtros.q or filtros.region or filtros.institucion or filtros.sector or filtros.modalidad or filtros.nivel or filtros.costo %}
+                Prueba quitando algunos filtros.
+                <a class="boton boton-secundario" href="{{ request.path }}">Ver todo</a>
+                {% else %}
+                Publicamos solo información verificada; vuelve pronto.
+                {% endif %}
+            </div>
+            {% endif %}
+        </section>
+    </div>
+</div>
+{% endblock %}

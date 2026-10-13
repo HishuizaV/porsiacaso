@@ -1,0 +1,298 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}{{ 'Editar' if a else 'Publicar' }} {{ info.nombre|lower }}{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css">
+{% endblock %}
+
+{% macro campo(c, valor) %}
+{% set id = 'd_' ~ c.nombre %}
+<label class="campo {{ 'campo-ancho' if c.tipo in ('lineas', 'parrafo') }}" for="{{ id }}">
+    <span>{{ c.etiqueta }}{% if c.requerido %} <span class="req" title="Obligatorio para publicar">*</span>{% endif %}</span>
+    {% if c.tipo == 'opcion' %}
+    <select id="{{ id }}" name="{{ id }}">
+        <option value="">— No indicado —</option>
+        {% for k, n in c.opciones %}<option value="{{ k }}" {{ 'selected' if valor == k }}>{{ n }}</option>{% endfor %}
+    </select>
+    {% elif c.tipo in ('lineas', 'parrafo') %}
+    <textarea id="{{ id }}" name="{{ id }}" rows="{{ 5 if c.tipo == 'lineas' else 3 }}" placeholder="{{ c.ejemplo }}">{{ valor or '' }}</textarea>
+    {% elif c.tipo == 'fecha' %}
+    <input id="{{ id }}" type="date" name="{{ id }}" value="{{ valor.isoformat() if valor else '' }}">
+    {% elif c.tipo == 'numero' %}
+    <input id="{{ id }}" type="number" min="1" step="1" inputmode="numeric" name="{{ id }}" value="{{ valor if valor is not none else '' }}">
+    {% elif c.tipo == 'decimal' %}
+    <input id="{{ id }}" type="text" inputmode="decimal" name="{{ id }}" value="{{ valor if valor is not none else '' }}" placeholder="{{ c.ejemplo }}">
+    {% else %}
+    <input id="{{ id }}" type="text" name="{{ id }}" value="{{ valor or '' }}" maxlength="{{ c.maximo or 300 }}" placeholder="{{ c.ejemplo }}">
+    {% endif %}
+    {% if c.ayuda %}<small>{{ c.ayuda }}</small>{% endif %}
+</label>
+{% endmacro %}
+
+{% block content %}
+<div class="titulo-fila">
+    <div>
+        <h1>{{ info.icono }} {{ ('Editar ' if a else 'Publicar ') ~ info.nombre|lower }}</h1>
+        <p class="ayuda">Los campos con <span class="req" style="color:var(--marca)">*</span> son obligatorios para publicar. Puedes guardar un borrador incompleto en cualquier momento.
+        {% if a %}<br>Dirección: <code>{{ url_publicacion(a) }}</code> (no cambia al editar el título, para no romper enlaces).{% endif %}</p>
+    </div>
+    {% if a %}<a class="btn" href="{{ url_for('admin.vista_previa', id=a.id) }}" target="_blank" rel="noopener">Vista previa ↗</a>{% endif %}
+</div>
+
+<form method="post" enctype="multipart/form-data" id="form" novalidate>
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div class="form-grid">
+    <div>
+        <fieldset>
+            <legend>Lo básico</legend>
+            <div class="campos">
+                <label class="campo campo-ancho" for="titulo"><span>Título de la publicación <span class="req">*</span></span>
+                    <input id="titulo" name="titulo" value="{{ v.titulo }}" maxlength="200" required
+                           placeholder="{{ 'Ej.: Asistente administrativo – Municipalidad de Chiclayo (CAS)' if info.detalle == 'empleo' else 'Escribe un título claro y descriptivo' }}">
+                    <small>Claro y descriptivo. Ideal: menos de 70 letras. <span id="cuentaTitulo"></span></small>
+                </label>
+                <label class="campo campo-ancho" for="resumen"><span>Resumen <span class="req">*</span></span>
+                    <textarea id="resumen" name="resumen" rows="2" maxlength="400" placeholder="Una o dos frases: qué es, para quién y hasta cuándo.">{{ v.resumen }}</textarea>
+                    <small>Se muestra en las tarjetas y en Google.</small>
+                </label>
+                {% if info.institucion %}
+                <label class="campo" for="institucion"><span>{{ 'Empresa o institución' if info.detalle == 'empleo' else 'Entidad responsable' }}{% if info.oportunidad %} <span class="req">*</span>{% endif %}</span>
+                    <input id="institucion" name="institucion" value="{{ v.institucion }}" list="lista-instituciones" maxlength="200" placeholder="Escribe y elige de la lista, o escribe una nueva">
+                    <datalist id="lista-instituciones">{% for i in instituciones %}<option value="{{ i.nombre }}">{% endfor %}</datalist>
+                    <small>Si no existe, se crea automáticamente.</small>
+                </label>
+                <label class="campo" for="institucion_sector"><span>Sector de la entidad (si es nueva)</span>
+                    <select id="institucion_sector" name="institucion_sector"><option value="">— No indicado —</option>
+                        {% for k, n in sectores %}<option value="{{ k }}" {{ 'selected' if v.institucion_sector == k }}>{{ n }}</option>{% endfor %}</select>
+                </label>
+                <label class="campo campo-ancho" for="institucion_logo"><span>Logo de la entidad (opcional)</span>
+                    <input id="institucion_logo" type="file" name="institucion_logo" accept="image/png,image/jpeg,image/webp">
+                    <small>Solo si tienes el logo oficial. Si no, se muestra un ícono.</small>
+                </label>
+                {% endif %}
+                <label class="campo" for="ubicacion_id"><span>Ubicación</span>
+                    <select id="ubicacion_id" name="ubicacion_id">
+                        <option value="">🇵🇪 Todo el Perú / no aplica</option>
+                        {% for r in regiones %}
+                        <optgroup label="{{ r.nombre }}">
+                            <option value="{{ r.id }}" {{ 'selected' if v.ubicacion_id == r.id }}>{{ r.nombre }} (toda la región)</option>
+                            {% for c in r.hijas %}<option value="{{ c.id }}" {{ 'selected' if v.ubicacion_id == c.id }}>{{ c.nombre }}</option>{% endfor %}
+                        </optgroup>
+                        {% endfor %}
+                    </select>
+                    <small>¿Falta tu ciudad? Un administrador puede agregarla en «Regiones y ciudades».</small>
+                </label>
+                <label class="campo" for="categoria_id"><span>Tema <span class="req">*</span></span>
+                    <select id="categoria_id" name="categoria_id" required>
+                        <option value="">Elige…</option>
+                        {% for c in categorias %}<option value="{{ c.id }}" {{ 'selected' if v.categoria_id == c.id }}>{{ c.icono }} {{ c.nombre }}</option>{% endfor %}
+                    </select>
+                </label>
+            </div>
+        </fieldset>
+
+        {% for titulo, campos in info.campos %}
+        <fieldset>
+            <legend>{{ titulo }}</legend>
+            <div class="campos">{% for c in campos %}{{ campo(c, det.get(c.nombre)) }}{% endfor %}</div>
+        </fieldset>
+        {% endfor %}
+
+        {% if info.oportunidad or info.detalle %}
+        <fieldset>
+            <legend>Fechas y vigencia</legend>
+            <div class="campos">
+                <label class="campo" for="fecha_limite"><span>Fecha límite</span>
+                    <input id="fecha_limite" type="date" name="fecha_limite" value="{{ v.fecha_limite.isoformat() if v.fecha_limite else '' }}">
+                    <small>Déjala vacía si no hay fecha. Al pasar, el sitio la marca como vencida sola.</small>
+                </label>
+                <label class="campo" for="vigencia"><span>Estado de la convocatoria</span>
+                    <select id="vigencia" name="vigencia"><option value="">— No aplica —</option>
+                        {% for k, n in vigencias %}<option value="{{ k }}" {{ 'selected' if v.vigencia == k }}>{{ n }}</option>{% endfor %}</select>
+                    <small>«Pendiente de verificación» muestra un aviso al visitante.</small>
+                </label>
+                <label class="campo" for="verificado_en"><span>Verificado en la fuente oficial el</span>
+                    <input id="verificado_en" type="date" name="verificado_en" max="{{ hoy.isoformat() }}" value="{{ v.verificado_en.isoformat() if v.verificado_en else '' }}">
+                </label>
+                <label class="campo check" style="align-self:end"><input type="checkbox" name="verificado_hoy" value="1"> Lo verifiqué hoy en la fuente oficial</label>
+            </div>
+        </fieldset>
+        {% endif %}
+
+        <fieldset>
+            <legend>Botones y documentos oficiales</legend>
+            <p class="ayuda" style="margin-bottom:12px">Pega el enlace oficial y el sitio crea el botón. Sin enlace, no se muestra botón (nunca se inventa). Para bases o anexos puedes subir el PDF.</p>
+            <div id="enlaces">
+                {% for e in enlaces %}{% set i = loop.index0 %}{% include "admin/_enlace_fila.html" %}{% endfor %}
+            </div>
+            <button type="button" class="btn" id="agregarEnlace">+ Añadir enlace</button>
+            <template id="plantillaEnlace">{% set e = {'tipo': 'otro', 'etiqueta': '', 'url': '', 'archivo': ''} %}{% set i = '__N__' %}{% include "admin/_enlace_fila.html" %}</template>
+        </fieldset>
+
+        <fieldset>
+            <legend>{{ info.etiqueta_contenido }}{% if info.detalle is none or info.detalle == 'empleo' and tipo == 'empleo' %} <span class="req">*</span>{% endif %}</legend>
+            <p class="ayuda" style="margin-bottom:8px">Escribe con tus palabras. Usa los botones de la barra para títulos, listas, negritas y enlaces.</p>
+            <div id="editor">{{ v.contenido|safe }}</div>
+            <input type="hidden" name="contenido" id="contenido">
+        </fieldset>
+
+        <fieldset>
+            <legend>Recuadros opcionales</legend>
+            <div class="campos">
+                <label class="campo campo-ancho" for="aviso"><span>Aviso importante</span>
+                    <textarea id="aviso" name="aviso" rows="2" maxlength="1000" placeholder="Ej.: La entidad amplió el plazo hasta el 20 de octubre.">{{ v.aviso }}</textarea>
+                    <small>Aparece en un recuadro destacado al inicio.</small>
+                </label>
+                {% if not info.detalle %}
+                <label class="campo campo-ancho" for="datos_texto"><span>Datos clave</span>
+                    <textarea id="datos_texto" name="datos_texto" rows="4" placeholder="Quién puede postular: Mayores de 18 años&#10;Costo: Gratuito">{{ v.datos_texto }}</textarea>
+                    <small>Una línea por dato con el formato «Título: valor». Se muestran como tabla.</small>
+                </label>
+                {% endif %}
+            </div>
+            <h3 style="margin:14px 0 8px">Preguntas frecuentes</h3>
+            <div id="faqs">
+                {% for f in faq %}{% set i = loop.index0 %}{% include "admin/_faq_fila.html" %}{% endfor %}
+            </div>
+            <button type="button" class="btn" id="agregarFaq">+ Añadir pregunta</button>
+            <template id="plantillaFaq">{% set f = {'p': '', 'r': ''} %}{% set i = '__N__' %}{% include "admin/_faq_fila.html" %}</template>
+        </fieldset>
+
+        <fieldset>
+            <legend>Imagen</legend>
+            <div class="campos">
+                <div class="campo campo-ancho">
+                    {% if a and a.imagen %}<img class="mini" id="previa" src="{{ url_imagen(a, miniatura=True) }}" alt="Imagen actual">
+                    <label class="check"><input type="checkbox" name="quitar_imagen" value="1"> Quitar la imagen actual</label>
+                    {% else %}<img class="mini" id="previa" alt="" hidden>{% endif %}
+                    <label class="campo" for="imagen"><span>Subir imagen (JPG, PNG o WEBP)</span>
+                        <input id="imagen" type="file" name="imagen" accept="image/png,image/jpeg,image/webp">
+                        <small>Usa solo imágenes propias, con licencia o de uso libre. Se optimiza automáticamente.</small></label>
+                </div>
+                <label class="campo" for="imagen_alt"><span>Descripción de la imagen</span>
+                    <input id="imagen_alt" name="imagen_alt" value="{{ v.imagen_alt }}" maxlength="200" placeholder="Ej.: Fachada de la Municipalidad de Chiclayo">
+                    <small>Para personas con discapacidad visual y para Google.</small></label>
+                <label class="campo" for="imagen_credito"><span>Crédito de la imagen</span>
+                    <input id="imagen_credito" name="imagen_credito" value="{{ v.imagen_credito }}" maxlength="200" placeholder="Ej.: Foto propia / Pexels"></label>
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <legend>Fuente</legend>
+            <div class="campos">
+                <label class="campo" for="fuente_nombre"><span>Nombre de la fuente</span>
+                    <input id="fuente_nombre" name="fuente_nombre" value="{{ v.fuente_nombre }}" maxlength="150" placeholder="Ej.: Portal Talento Perú – SERVIR"></label>
+                <label class="campo" for="fuente_url"><span>Enlace de la fuente oficial{% if info.oportunidad %} <span class="req">*</span>{% endif %}</span>
+                    <input id="fuente_url" type="url" name="fuente_url" value="{{ v.fuente_url }}" placeholder="https://www.gob.pe/...">
+                    <small>{{ 'Obligatorio para publicar oportunidades (o al menos un botón oficial).' if info.oportunidad else 'Opcional.' }}</small></label>
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <legend>Notas internas</legend>
+            <label class="campo" for="notas_internas"><span>Solo las ve el equipo</span>
+                <textarea id="notas_internas" name="notas_internas" rows="2">{{ v.notas_internas }}</textarea></label>
+        </fieldset>
+    </div>
+
+    <aside class="form-lateral">
+        <div class="publicar-caja">
+            <h2>Guardar</h2>
+            {% if a %}<p class="ayuda">Estado actual: <span class="estado {{ 'programada' if a.programada else a.estado }}">{{ 'Programada' if a.programada else OPC.ESTADOS.get(a.estado, a.estado) }}</span></p>{% endif %}
+            <button class="btn btn-primario btn-grande btn-bloque" name="accion" value="publicar" type="submit">{{ 'Guardar y mantener publicado' if a and a.estado == 'publicado' else 'Publicar' }}</button>
+            <button class="btn btn-bloque" name="accion" value="borrador" type="submit" {% if a and a.estado == 'publicado' %}data-confirmar="Esto retirará la publicación del sitio y la dejará como borrador. ¿Continuar?"{% endif %}>Guardar como borrador</button>
+            <button class="btn btn-bloque" name="accion" value="revision" type="submit">Enviar a revisión</button>
+            <label class="check"><input type="checkbox" name="seguir" value="1"> Seguir editando después de guardar</label>
+            <label class="campo" for="programar"><span>Programar publicación (opcional)</span>
+                <input id="programar" type="datetime-local" name="programar" value="{{ v.programar.strftime('%Y-%m-%dT%H:%M') if v.programar else '' }}">
+                <small>Si eliges fecha futura y pulsas «Publicar», aparecerá sola en esa fecha (hora de Lima).</small></label>
+            {% if current_user.es_admin %}
+            <label class="check"><input type="checkbox" name="destacado" value="1" {{ 'checked' if v.destacado }}> Destacar en el inicio</label>
+            {% endif %}
+            <h2 style="margin-top:8px">Antes de publicar</h2>
+            <ul class="checklist" id="checklist">
+                <li data-check="titulo">Título descriptivo</li>
+                <li data-check="resumen">Resumen útil</li>
+                {% if info.oportunidad %}<li data-check="fuente">Fuente o enlace oficial</li>
+                <li data-check="limite">Fecha límite (si existe)</li>
+                <li data-check="verificado">Verificada en la fuente</li>{% endif %}
+                <li data-check="contenido">Información suficiente</li>
+                <li>Ortografía revisada</li>
+                <li>Imágenes con permiso de uso</li>
+                <li>No es copia de otro sitio</li>
+            </ul>
+        </div>
+    </aside>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
+<script>
+(function () {
+    var quill = new Quill('#editor', {
+        theme: 'snow',
+        placeholder: 'Escribe aquí…',
+        modules: { toolbar: [
+            [{ header: [2, 3, false] }],
+            ['bold', 'italic', 'underline'],
+            [{ list: 'ordered' }, { list: 'bullet' }],
+            ['blockquote', 'link'],
+            ['clean']
+        ]}
+    });
+    var form = document.getElementById('form');
+    form.addEventListener('submit', function () {
+        document.getElementById('contenido').value = quill.root.innerHTML;
+    });
+
+    function repetidor(botonId, contenedorId, plantillaId) {
+        var cont = document.getElementById(contenedorId);
+        var n = cont.children.length + 100;
+        document.getElementById(botonId).addEventListener('click', function () {
+            var html = document.getElementById(plantillaId).innerHTML.replace(/__N__/g, String(n++));
+            var tmp = document.createElement('div');
+            tmp.innerHTML = html;
+            var fila = tmp.firstElementChild;
+            cont.appendChild(fila);
+            var primero = fila.querySelector('input, select, textarea');
+            if (primero) primero.focus();
+        });
+        cont.addEventListener('click', function (e) {
+            if (e.target.matches('[data-quitar]')) e.target.closest('.repetidor-fila').remove();
+        });
+    }
+    repetidor('agregarEnlace', 'enlaces', 'plantillaEnlace');
+    repetidor('agregarFaq', 'faqs', 'plantillaFaq');
+
+    // Vista previa de la imagen elegida
+    var img = document.getElementById('imagen'), previa = document.getElementById('previa');
+    img.addEventListener('change', function () {
+        if (img.files && img.files[0]) { previa.src = URL.createObjectURL(img.files[0]); previa.hidden = false; }
+    });
+
+    // Contador del título y lista de comprobación
+    var titulo = document.getElementById('titulo'), cuenta = document.getElementById('cuentaTitulo');
+    function valor(id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; }
+    function revisar() {
+        cuenta.textContent = '(' + titulo.value.length + ' letras)';
+        var hayEnlace = Array.prototype.some.call(document.querySelectorAll('#enlaces input[type=url]'), function (i) { return i.value.trim(); });
+        var estado = {
+            titulo: valor('titulo').length >= 15,
+            resumen: valor('resumen').length >= 40,
+            fuente: !!valor('fuente_url') || hayEnlace,
+            limite: !!valor('fecha_limite'),
+            verificado: !!valor('verificado_en') || (document.querySelector('[name=verificado_hoy]') || {}).checked,
+            contenido: quill.getText().trim().length >= 80 || document.querySelectorAll('textarea[name^=d_]').length > 0
+        };
+        document.querySelectorAll('#checklist [data-check]').forEach(function (li) {
+            li.classList.toggle('ok', !!estado[li.getAttribute('data-check')]);
+        });
+    }
+    form.addEventListener('input', revisar);
+    form.addEventListener('change', revisar);
+    quill.on('text-change', revisar);
+    revisar();
+})();
+</script>
+{% endblock %}

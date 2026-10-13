@@ -1,57 +1,59 @@
 {% extends "admin/base_admin.html" %}
-{% block title %}Artículos{% endblock %}
+{% block title %}Resumen{% endblock %}
 {% block content %}
-<div class="adm-titulo">
-    <h1>Artículos</h1>
-    <a class="btn-adm" href="{{ url_for('admin.articulo_form') }}">+ Nuevo artículo</a>
+<div class="titulo-fila">
+    <div><h1>Hola, {{ current_user.nombre }}</h1>
+        <p class="ayuda">{{ 'Resumen de todo el sitio.' if current_user.es_admin else 'Resumen de tus publicaciones.' }} Las cifras salen directamente de la base de datos.</p></div>
+    <a class="btn btn-primario btn-grande" href="{{ url_for('admin.nueva') }}">+ Nueva publicación</a>
 </div>
 
-{% if articulos %}
-<div class="tabla-wrap">
-    <table>
-        <thead>
-            <tr>
-                <th>Título</th>
-                <th>Categoría</th>
-                <th>Estado</th>
-                <th>Autor</th>
-                <th>Fecha</th>
-                <th>Visitas</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for a in articulos %}
-            <tr>
-                <td><strong>{{ a.titulo }}</strong>{% if a.destacado %} ★{% endif %}</td>
-                <td>{{ a.categoria.corto }}{% if a.ubicacion %}<br><small>📍 {{ a.ubicacion.nombre }}</small>{% endif %}</td>
-                <td><span class="estado {{ a.estado }}">{{ a.estado }}</span></td>
-                <td>{{ a.autor.nombre }}</td>
-                <td>{{ a.fecha }}</td>
-                <td>{{ a.visitas }}</td>
-                <td class="acciones">
-                    <a href="{{ url_for('admin.articulo_form', id=a.id) }}">Editar</a>
-                    {% if a.estado == 'publicado' %}
-                    <a href="{{ url_for('articulo', slug=a.slug) }}" target="_blank">Ver</a>
-                    {% else %}
-                    <a href="{{ url_for('admin.articulo_vista', id=a.id) }}" target="_blank">Vista previa</a>
-                    {% endif %}
-                    <form method="post" action="{{ url_for('admin.articulo_estado', id=a.id) }}">
-                        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-                        <button class="link">{{ 'Despublicar' if a.estado == 'publicado' else 'Publicar' }}</button>
-                    </form>
-                    <form method="post" action="{{ url_for('admin.articulo_eliminar', id=a.id) }}"
-                        onsubmit="return confirm('¿Eliminar este artículo?')">
-                        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-                        <button class="link peligro">Eliminar</button>
-                    </form>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<div class="rejilla-cifras">
+    <a class="cifra" href="{{ url_for('admin.publicaciones', estado='publicado') }}"><strong>{{ conteo_estado.publicado }}</strong><span>Publicadas</span></a>
+    <a class="cifra" href="{{ url_for('admin.publicaciones', estado='borrador') }}"><strong>{{ conteo_estado.borrador }}</strong><span>Borradores</span></a>
+    <a class="cifra" href="{{ url_for('admin.publicaciones', estado='revision') }}"><strong>{{ conteo_estado.revision }}</strong><span>Pendientes de revisión</span></a>
+    <a class="cifra" href="{{ url_for('admin.publicaciones', estado='archivado') }}"><strong>{{ conteo_estado.archivado }}</strong><span>Archivadas</span></a>
 </div>
-{% else %}
-<p>Aún no hay artículos. Crea el primero.</p>
+
+{% if alertas %}
+<section class="caja" aria-labelledby="t-alertas">
+    <h2 id="t-alertas">Alertas editoriales</h2>
+    {% for texto, enlace in alertas %}<div class="flash aviso">{{ texto }} <a href="{{ enlace }}">Revisar →</a></div>{% endfor %}
+</section>
 {% endif %}
+
+<section class="caja" aria-labelledby="t-vencer">
+    <h2 id="t-vencer">Convocatorias que vencen en 7 días</h2>
+    {% if por_vencer %}
+    <div class="tabla-wrap"><table>
+        <thead><tr><th>Publicación</th><th>Fecha límite</th><th></th></tr></thead>
+        <tbody>{% for a in por_vencer %}<tr>
+            <td><strong>{{ a.titulo }}</strong><br><small>{{ a.info.nombre }}</small></td>
+            <td>{{ a.fecha_limite.strftime('%d/%m/%Y') }}</td>
+            <td><a href="{{ url_for('admin.publicacion_form', id=a.id) }}">Editar</a></td>
+        </tr>{% endfor %}</tbody>
+    </table></div>
+    {% else %}<p class="ayuda">Ninguna publicada vence esta semana.</p>{% endif %}
+</section>
+
+<section class="caja" aria-labelledby="t-tipos">
+    <h2 id="t-tipos">Publicaciones por tipo</h2>
+    {% if conteo_tipo %}
+    <div class="acciones">{% for k, n in conteo_tipo.items() %}<a class="btn" href="{{ url_for('admin.publicaciones', tipo=k) }}">{{ TIPOS_ADMIN[k].icono if k in TIPOS_ADMIN }} {{ TIPOS_ADMIN[k].plural if k in TIPOS_ADMIN else k }}: {{ n }}</a>{% endfor %}</div>
+    {% else %}<p class="ayuda">Todavía no hay publicaciones. Empieza con «+ Nueva publicación».</p>{% endif %}
+</section>
+
+<section class="caja" aria-labelledby="t-rec">
+    <h2 id="t-rec">Editadas recientemente</h2>
+    {% if recientes %}
+    <div class="tabla-wrap"><table>
+        <thead><tr><th>Título</th><th>Tipo</th><th>Estado</th><th>Actualizado</th></tr></thead>
+        <tbody>{% for a in recientes %}<tr>
+            <td><a href="{{ url_for('admin.publicacion_form', id=a.id) }}">{{ a.titulo }}</a></td>
+            <td>{{ a.info.nombre }}</td>
+            <td><span class="estado {{ 'programada' if a.programada else a.estado }}">{{ 'Programada' if a.programada else OPC.ESTADOS[a.estado] }}</span></td>
+            <td>{{ a.actualizado.strftime('%d/%m/%Y %H:%M') if a.actualizado }}</td>
+        </tr>{% endfor %}</tbody>
+    </table></div>
+    {% else %}<p class="ayuda">Sin actividad todavía.</p>{% endif %}
+</section>
 {% endblock %}

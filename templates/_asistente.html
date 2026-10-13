@@ -1,0 +1,14 @@
+<button class="asis-boton" id="asisBoton" type="button" aria-controls="asisPanel" aria-expanded="false">💬 <span>¿Te ayudo a buscar?</span></button>
+<section class="asis-panel" id="asisPanel" hidden aria-label="Asistente PorSiAcaso" data-url="{{ url_for('api.asistente') }}">
+    <header class="asis-cabecera">
+        <div><strong>Asistente PorSiAcaso</strong><small>Asistente automático · solo busca en este sitio</small></div>
+        <button class="asis-cerrar" id="asisCerrar" type="button" aria-label="Cerrar asistente">×</button>
+    </header>
+    <div class="asis-mensajes" id="asisMensajes" role="log" aria-live="polite"></div>
+    <form class="asis-form" id="asisForm">
+        <label class="sr-only" for="asisTexto">Escribe tu consulta</label>
+        <input id="asisTexto" type="text" maxlength="300" autocomplete="off" placeholder="Ej.: trabajo en Chiclayo">
+        <button type="submit">Enviar</button>
+    </form>
+    <p class="asis-nota">No escribas tu DNI, contraseñas ni datos personales. No guardamos esta conversación.</p>
+</section>
