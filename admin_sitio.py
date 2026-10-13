@@ -152,7 +152,7 @@ def configuracion():
     valores = ajustes.todos()
     if request.method == "POST":
         f = request.form
-        nuevos = {k: f.get(k, "").strip() for k in ajustes.DEFINICION}
+        nuevos = {k: f.get(k, "").strip() for k in ajustes.CLAVES_SITIO}
         nuevos["asistente_activo"] = "1" if f.get("asistente_activo") else "0"
         errores = []
         if nuevos["anuncios_modo"] not in ("off", "maqueta", "adsense"):

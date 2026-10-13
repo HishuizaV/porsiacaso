@@ -133,6 +133,9 @@ def registrar_errores(app):
 
 
 def registrar_comandos(app):
+    from autopilot.cli import registrar as registrar_autopilot
+    registrar_autopilot(app)
+
     @app.cli.command("iniciar")
     def iniciar():
         """Carga categorías, zonas y páginas iniciales (después de: flask db upgrade)."""

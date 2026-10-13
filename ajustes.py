@@ -22,7 +22,20 @@ DEFINICION = {
     "tiktok_url": ("", ""),
     "youtube_url": ("", ""),
     "google_verificacion": ("", "Código de la etiqueta meta de Search Console"),
+    # Autopilot (se editan en Panel > Autopilot)
+    "autopilot_modo": ("A", "A solo borradores | B publicación mixta | C ampliada"),
+    "autopilot_tipos_auto": ("", "Tipos autorizados para autopublicar (coma)"),
+    "autopilot_duracion": ("120", "Minutos máximos por jornada"),
+    "autopilot_objetivo": ("12", "Fichas útiles buscadas por jornada"),
+    "autopilot_tipos": ("", "Tipos a investigar (vacío = todos)"),
+    "autopilot_regiones": ("", "Slugs de región a priorizar (vacío = todas)"),
+    "autopilot_espaciado": ("30", "Minutos entre publicaciones automáticas programadas"),
+    "autopilot_concurrencia": ("2", "Descargas simultáneas (1–4)"),
+    "autopilot_ia": ("0", "1 = usar Ollama local como apoyo"),
+    "autopilot_ia_modelo": ("qwen3:1.7b", "Modelo local de Ollama"),
+    "autopilot_politica": ("", "Confirmaciones del administrador para autopublicar (JSON)"),
 }
+CLAVES_SITIO = [k for k in DEFINICION if not k.startswith("autopilot_")]
 
 RE_CLIENTE = re.compile(r"^ca-pub-\d{16}$")
 RE_SLOT = re.compile(r"^\d{6,12}$")
