@@ -12,11 +12,18 @@ from models import Articulo, ahora, hoy
 from tipos import TIPOS
 from autopilot import adaptadores, calidad, clasificador, dedup, extraccion, publicador, redactor, verificador
 from autopilot.modelos import Hallazgo, Evidencia, Tarea, Verificacion, VersionArticulo
-from autopilot.red import Bloqueado
+from autopilot.red import Bloqueado, ErrorRed
 
 MAX_TEXTO = 60_000
 TIPO_PAGINA = {"empleo": "convocatoria", "convocatoria": "convocatoria", "beca": "convocatoria",
                "educativa": "convocatoria", "curso": "convocatoria"}
+
+
+def _regiones_mencionadas(texto):
+    from models import Ubicacion
+    from utils import normalizar
+    t = f" {normalizar(texto)} "
+    return sum(1 for u in Ubicacion.query.filter_by(tipo="region").all() if f" {normalizar(u.nombre)} " in t)
 
 
 def encolar(tipo, objetivo_id, clave, prioridad=3, ejecucion_id=None):
@@ -46,7 +53,8 @@ def consultar_fuente(fuente, descargador, ejecucion_id=None):
             continue
         h = Hallazgo(fuente_id=fuente.id, url=it.url[:1000], url_normalizada=url_n[:1000],
                      id_externo=(it.id_externo or None) and it.id_externo[:200], titulo=it.titulo[:400],
-                     resumen_fuente=it.resumen[:2000] or None, fecha_fuente=it.fecha, estado="nuevo")
+                     resumen_fuente=it.resumen[:2000] or None, fecha_fuente=it.fecha, estado="nuevo",
+                     extra_json=json.dumps(it.extra, ensure_ascii=False) if it.extra else None)
         db.session.add(h)
         db.session.flush()
         encolar("procesar_hallazgo", h.id, f"procesar:{h.id}", 2, ejecucion_id)
@@ -61,29 +69,58 @@ def consultar_fuente(fuente, descargador, ejecucion_id=None):
 
 
 # ---------- 2–7. Procesamiento de un hallazgo ----------
+RE_DOC_CLAVE = re.compile(r"^(cronograma|bases|perfil)", re.I)
+
+
+def _pdf_de_pagina(url, descargador):
+    """En gob.pe, «Bases» o «Cronograma» suelen ser una página con el PDF dentro: se sigue un salto."""
+    try:
+        r = descargador.obtener(url)
+    except (Bloqueado, ErrorRed):
+        return None
+    _t, _x, enlaces = extraccion.texto_html(r.texto, r.url)
+    pdfs = extraccion.pdfs_de(enlaces)
+    return pdfs[0] if pdfs else None
+
+
 def _descargar_evidencia(h, descargador):
-    """(titulo, texto, enlaces, paginas_pdf, url_pdf, bytes_pdf)."""
+    """(titulo, texto, enlaces, paginas_pdf, url_pdf, bytes_pdf). Las páginas PDF son (n, texto, url)."""
     fuente = h.fuente
+    extra = [(t, u) for t, u in h.extra.get("enlaces", []) if isinstance(u, str)]
     if re.search(r"\.pdf(\?|$)", h.url, re.I):
         r = descargador.obtener_pdf(h.url)
-        paginas = extraccion.texto_pdf(r.contenido)
-        return h.titulo or "", "\n".join(t for _p, t in paginas), [], paginas, h.url, r.contenido
+        paginas = [(n, t, h.url) for n, t in extraccion.texto_pdf(r.contenido)]
+        return h.titulo or "", "\n".join(p[1] for p in paginas), extra, paginas, h.url, r.contenido
     if fuente.config.get("seguir_detalle", True):
         r = descargador.obtener(h.url)
         titulo, texto, enlaces = extraccion.texto_html(r.texto, r.url)
     else:
         titulo, texto, enlaces = h.titulo or "", h.resumen_fuente or "", []
+    if h.resumen_fuente and h.resumen_fuente not in texto:
+        texto = h.resumen_fuente + "\n" + texto      # descripción del bloque o fila del listado
+    if extra and h.extra.get("bloque"):
+        titulo = h.titulo or titulo                    # el título del bloque es más preciso que el de la página
     titulo = titulo or h.titulo or ""
-    pdfs = extraccion.pdfs_de([(t, u) for t, u in enlaces if re.search(r"bases?", t + u, re.I)]) or \
-        extraccion.pdfs_de(enlaces)
+    enlaces = enlaces + [e for e in extra if e not in enlaces]
+    pdfs = extraccion.pdfs_de([(t, u) for t, u in enlaces if re.search(r"cronograma|bases?", t + u, re.I)])
+    # Documentos clave que son páginas (no PDF): un salto para obtener su PDF
+    for t, u in extra:
+        if RE_DOC_CLAVE.match(t.strip()) and not re.search(r"\.pdf(\?|$)", u, re.I) and len(pdfs) < 3:
+            pdf = _pdf_de_pagina(u, descargador)
+            if pdf and pdf not in pdfs:
+                pdfs.insert(0 if t.lower().startswith("cronograma") else len(pdfs), pdf)
+    if not pdfs:
+        pdfs = extraccion.pdfs_de(enlaces)
     paginas, url_pdf, datos_pdf = [], None, None
-    if pdfs and fuente.config.get("leer_pdf", True):
-        try:
-            rp = descargador.obtener_pdf(pdfs[0])
-            datos_pdf, url_pdf = rp.contenido, pdfs[0]
-            paginas = extraccion.texto_pdf(datos_pdf)
-        except Bloqueado:
-            pass   # PDF demasiado grande o no permitido: se sigue con la página
+    if fuente.config.get("leer_pdf", True):
+        for pdf in pdfs[:2]:   # cronograma y bases como máximo
+            try:
+                rp = descargador.obtener_pdf(pdf)
+            except (Bloqueado, ErrorRed):
+                continue   # PDF demasiado grande o no permitido: se sigue con lo demás
+            if datos_pdf is None:
+                datos_pdf, url_pdf = rp.contenido, pdf
+            paginas += [(n, t, pdf) for n, t in extraccion.texto_pdf(rp.contenido)]
     return titulo, texto, enlaces, paginas, url_pdf, datos_pdf
 
 
@@ -120,7 +157,7 @@ def analizar(h, descargador, cfg, ia=None):
     if tipo_det != tipo:
         tipo = tipo_det
         datos = extraccion.extraer(tipo, titulo, texto, h.url, hoy_, paginas, url_pdf)
-    sospechas = clasificador.inyeccion(texto + "\n" + "\n".join(t for _p, t in paginas))
+    sospechas = clasificador.inyeccion(texto + "\n" + "\n".join(p[1] for p in paginas))
 
     # IA opcional: solo completa campos faltantes y queda marcada como «inferido»
     if ia is not None:
@@ -130,6 +167,8 @@ def analizar(h, descargador, cfg, ia=None):
     zona = fuente.ubicacion
     if zona is None:
         z = buscar_zona(titulo + " " + texto[:4000])
+        if z is not None and _regiones_mencionadas(titulo + " " + texto[:4000]) > 1:
+            z = None   # menciona varias regiones: alcance nacional o múltiple
         if z is not None:
             zona = z
             datos["region"] = extraccion.Dato(z.nombre, "derivado", "Mencionada en la fuente", h.url, None, "regla")
@@ -141,9 +180,24 @@ def analizar(h, descargador, cfg, ia=None):
                                                fuente.url_principal, None, "fuente")
 
     enlaces = extraccion.clasificar_enlaces(enlaces_pagina, h.url, TIPO_PAGINA.get(tipo, "oficial"))
+    cta = TIPOS[tipo]["cta"]
+    if cta in ("inscripcion", "consulta"):
+        # «Inscríbete» / «Postula» en un curso o un beneficio = su botón principal propio
+        enlaces = [(cta if t == "postular" else t, e, u) for t, e, u in enlaces]
     verificados = verificador.verificar_enlaces(enlaces, descargador)
-    problemas = verificador.verificar_fechas(datos, hoy_, tipo, h.fecha_fuente.date() if h.fecha_fuente else None)
-    if paginas and not any(t.strip() for _p, t in paginas):
+    problemas = verificador.verificar_fechas(datos, hoy_, tipo, h.fecha_fuente.date() if h.fecha_fuente else None,
+                                             titulo)
+    fl_dudosa = datos["fecha_limite"]
+    if fl_dudosa.util and fl_dudosa.valor > hoy_ + timedelta(days=400):
+        # Una «fecha límite» a más de un año suele ser otra fecha (fin de estudios, vigencia…): no se usa
+        datos["fecha_limite"] = extraccion.Dato(fl_dudosa.valor, "contradictorio", fl_dudosa.fragmento,
+                                                fl_dudosa.origen, fl_dudosa.pagina, "regla")
+    # Si ya hay DOCUMENTOS de resultados o de cancelación, la postulación terminó aunque un
+    # cronograma antiguo muestre una fecha futura.
+    etapa = verificador.etapa_concluida(enlaces_pagina)
+    if etapa:
+        problemas.append(("bloqueo", etapa))
+    if paginas and not any(p[1].strip() for p in paginas):
         problemas.append(("revision", "Las bases son un PDF escaneado (imagen): revisa a mano el cronograma y la "
                                       "fecha límite."))
     relev, motivos_rel = clasificador.relevancia(datos, tipo, enlaces, hoy_, titulo, h.resumen_fuente or "")
@@ -260,3 +314,57 @@ def revisar_vigencias(descargador, limite_enlaces=15):
                                     detalle=f"{principal.texto}: {'HTTP ' + str(estado) if estado else detalle}"))
         rotos += 0 if ok else 1
     return cerradas, rotos
+
+
+
+# ---------- Reevaluación tras mejorar las reglas ----------
+def _intacta(a, servicio):
+    """Ficha del Autopilot que ninguna persona editó, aprobó ni rechazó."""
+    from autopilot.modelos import DecisionEditorial
+    humana = DecisionEditorial.query.filter_by(articulo_id=a.id, actor="humano").first()
+    return (a.origen == "autopilot" and a.estado == "revision" and a.editado_por_id == servicio.id
+            and a.publicado_por_id is None and humana is None)
+
+
+def reevaluar_borradores(descargador, cfg, incluir_descartados_de=()):
+    """Vuelve a analizar las fichas del Autopilot aún intactas con las reglas actuales.
+    Las que ya no pasan se retiran (nunca se publicaron); las demás se rehacen. Devuelve un resumen."""
+    from autopilot.modelos import DecisionEditorial
+    from models import Registro
+    servicio = publicador.usuario_servicio()
+    resumen = {"retiradas": [], "rehechas": [], "omitidas": 0, "reabiertas": 0}
+    if incluir_descartados_de:
+        # Los descartados de esas fuentes se vuelven a procesar (nunca tuvieron ficha)
+        for h in Hallazgo.query.filter(Hallazgo.estado.in_(("descartado", "error")),
+                                       Hallazgo.fuente_id.in_(list(incluir_descartados_de))).all():
+            h.estado, h.motivo = "nuevo", None
+            encolar("procesar_hallazgo", h.id, f"procesar:{h.id}:re{ahora():%Y%m%d%H%M}", 2)
+            resumen["reabiertas"] += 1
+    for h in Hallazgo.query.filter(Hallazgo.estado.in_(("duplicado", "actualizacion"))).all():
+        # Los duplicados se recalculan con las reglas nuevas (p. ej. PDF compartido entre becas distintas)
+        VersionArticulo.query.filter_by(hallazgo_id=h.id, estado="pendiente").update({"estado": "rechazada"})
+        h.estado, h.duplicado_de_id, h.motivo = "nuevo", None, None
+        encolar("procesar_hallazgo", h.id, f"procesar:{h.id}:re{ahora():%Y%m%d%H%M}", 2)
+        resumen["reabiertas"] += 1
+    db.session.commit()
+    for h in Hallazgo.query.filter(Hallazgo.estado == "borrador", Hallazgo.articulo_id.isnot(None)).all():
+        a = h.articulo
+        if a is None or not _intacta(a, servicio):
+            resumen["omitidas"] += 1
+            continue
+        titulo_previo = a.titulo
+        DecisionEditorial.query.filter_by(articulo_id=a.id).update({"articulo_id": None})
+        VersionArticulo.query.filter_by(articulo_id=a.id).delete()
+        h.articulo_id = None
+        db.session.delete(a)
+        db.session.flush()
+        h.estado = "nuevo"
+        resultado = procesar_hallazgo(h, descargador, cfg)
+        if resultado == "rechazado":
+            resumen["retiradas"].append((titulo_previo, h.motivo))
+            db.session.add(Registro(usuario_id=servicio.id, accion="autopilot_ficha_retirada",
+                                    detalle=f"{titulo_previo}: {h.motivo or ''}"[:300]))
+        else:
+            resumen["rehechas"].append((titulo_previo, resultado))
+        db.session.commit()
+    return resumen

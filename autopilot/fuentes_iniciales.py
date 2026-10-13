@@ -74,3 +74,101 @@ FUENTES = [
          condiciones="El sitio usa protección antibots (Incapsula). PorSiAcaso NO la elude: consulta manual.",
          observaciones="Fuente principal de empleo público. Revisar manualmente y publicar con el formulario."),
 ]
+
+
+# ---------------------------------------------------------------------------
+# Segunda tanda (pedida por el propietario el 13/10/2026). Verificadas con el descargador del
+# Autopilot: todas responden 200 y su robots.txt permite la lectura automatizada.
+INSTITUCIONES.update({
+    "cultura": ("Ministerio de Cultura", "MINCUL", "publico", "https://www.gob.pe/cultura"),
+    "agrorural": ("Programa de Desarrollo Productivo Agrario Rural", "AGRO RURAL", "publico",
+                  "https://www.gob.pe/agrorural"),
+    "grtpe": ("Gerencia Regional de Trabajo y Promoción del Empleo – Lambayeque", "GRTPE Lambayeque", "publico",
+              "https://www.gob.pe/institucion/regionlambayeque-grtpe"),
+    "gre": ("Gerencia Regional de Educación - Lambayeque", "GRE Lambayeque", "publico",
+            "https://www.gob.pe/institucion/regionlambayeque-gre"),
+    "geresa": ("Gerencia Regional de Salud Lambayeque", "GERESA Lambayeque", "publico",
+               "https://www.gob.pe/institucion/regionlambayeque-geresa"),
+    "mtpe": ("Ministerio de Trabajo y Promoción del Empleo", "MTPE", "publico", "https://www.gob.pe/mtpe"),
+    "proinnovate": ("Programa Nacional de Innovación y Desarrollo Productivo - ProInnóvate", "ProInnóvate", "publico",
+                    "https://www.gob.pe/institucion/proinnovate"),
+    "ue008": ("Ministerio de Cultura – Unidad Ejecutora N° 008", "MINCUL UE 008", "publico",
+              "https://www.proyectoscultura.gob.pe/"),
+})
+CAMPANAS = r"campa(?:%C3%B1|ñ)as/(\d+)"
+
+FUENTES += [
+    dict(nombre="PRONABEC – Becas (campañas de gob.pe)", inst="pronabec", zona=None,
+         url_principal="https://www.gob.pe/pronabec",
+         url_listado="https://www.gob.pe/institucion/pronabec/campa%C3%B1as",
+         tipo="beca", formato="html", frecuencia=24, prioridad=1,
+         config={"patron_enlace": r"/institucion/pronabec/campa(%C3%B1|ñ)as/\d+", "patron_id": CAMPANAS,
+                 "excluir": ["resultados", "ganadores", "seleccionados"], "max_items": 30},
+         condiciones=ROBOTS_GOBPE, observaciones="Cada campaña es una beca. Las páginas permanentes sin fecha de "
+                                                 "cierre ni enlace de postulación se descartan."),
+    dict(nombre="Ministerio de Cultura – CAS vigentes", inst="cultura", zona=None,
+         url_principal="https://convocatorias.cultura.gob.pe/cas-vigente",
+         url_listado="https://plataformamincu.cultura.gob.pe/POST_CAST/Gestion/LISTADO_PUBLICACION?NTC=1&NOPT=1",
+         tipo="empleo", formato="json", frecuencia=24, prioridad=1,
+         config={"plantilla_url": "{RUTA_CARPETA}{BASES}", "plantilla_titulo": "Convocatoria CAS N° {SPROCESO} – {SSERVICIO}",
+                 "plantilla_resumen": "{NPLAZAS} plaza(s) en {SEDE}. {SOFICINA}.", "campos": {"id": "SPROCESO"},
+                 "excluir": ["cancelado"], "enlace_extra": "https://plataformamincu.cultura.gob.pe/POST_CAST/User/Login",
+                 "texto_enlace_extra": "Postulación en línea"},
+         condiciones="La página convocatorias.cultura.gob.pe carga su lista desde el listado público "
+                     "plataformamincu.cultura.gob.pe/POST_CAST/Gestion/LISTADO_PUBLICACION (NTC=1 CAS, NOPT=1 vigentes). "
+                     "robots.txt permite todo. No se usa ninguna sesión.",
+         observaciones="Adaptador JSON con plantillas. Al 13/10/2026 la lista de vigentes estaba vacía "
+                       "(22 en evaluación, 1733 finalizadas)."),
+    dict(nombre="AGRO RURAL – Convocatorias CAS 2026 (gob.pe)", inst="agrorural", zona=None,
+         url_principal="https://www.gob.pe/agrorural", url_listado="https://www.gob.pe/109656-convocatorias-cas-2026",
+         tipo="empleo", formato="html", frecuencia=24, prioridad=1,
+         config={"modo": "procesos", "patron_bloque": r"Proceso de Selecci[oó]n N", "excluir_bloque": ["resultado"]},
+         condiciones=ROBOTS_GOBPE,
+         observaciones="Página con un bloque por proceso. Se omiten los procesos que ya muestran resultados; "
+                       "se sigue un salto a «Bases» y «Cronograma» para leer sus PDF."),
+    dict(nombre="GRTPE Lambayeque – Concursos (campañas de gob.pe)", inst="grtpe", zona="lambayeque",
+         url_principal="https://www.gob.pe/institucion/regionlambayeque-grtpe",
+         url_listado="https://www.gob.pe/institucion/regionlambayeque-grtpe/campa%C3%B1as",
+         tipo="convocatoria", formato="html", frecuencia=24, prioridad=1,
+         config={"patron_enlace": r"/institucion/regionlambayeque-grtpe/campa(%C3%B1|ñ)as/\d+", "patron_id": CAMPANAS,
+                 "palabras_clave": ["concurso", "convocatoria", "cas", "practicas"],
+                 "excluir": ["suspension", "sindicato", "integridad", "tiempo parcial"]},
+         condiciones=ROBOTS_GOBPE, observaciones="Las campañas mezclan convocatorias con avisos laborales."),
+    dict(nombre="GRE Lambayeque – Convocatoria CAS (página única)", inst="gre", zona="lambayeque",
+         url_principal="https://www.gob.pe/institucion/regionlambayeque-gre",
+         url_listado="https://www.gob.pe/institucion/regionlambayeque-gre/campa%C3%B1as/140091-convocatoria-cas",
+         tipo="convocatoria", formato="html", frecuencia=24, prioridad=2, config={"modo": "pagina_unica"},
+         condiciones=ROBOTS_GOBPE, observaciones="La URL es una sola convocatoria; se revisa si publicó resultados."),
+    dict(nombre="GERESA Lambayeque – Proceso CAS N° 001-2026 (página única)", inst="geresa", zona="lambayeque",
+         url_principal="https://www.gob.pe/institucion/regionlambayeque-geresa",
+         url_listado="https://www.gob.pe/institucion/regionlambayeque-geresa/informes-publicaciones/7923140-proceso-de-convocatoria-cas-n-001-2026",
+         tipo="convocatoria", formato="html", frecuencia=24, prioridad=2, config={"modo": "pagina_unica"},
+         condiciones=ROBOTS_GOBPE, observaciones="La URL es una sola convocatoria; se revisa si publicó resultados."),
+    dict(nombre="MTPE – Eventos Empleos Perú", inst="mtpe", zona=None,
+         url_principal="https://www.gob.pe/institucion/mtpe/pages/110489-eventos-empleos-peru",
+         url_listado="https://eventosempleosperu.trabajo.gob.pe", tipo="empleo", formato="otro", frecuencia=72,
+         prioridad=3, config={}, estado="manual",
+         condiciones="La página de gob.pe describe el servicio; los eventos están en eventosempleosperu.trabajo.gob.pe, "
+                     "una aplicación JavaScript sin texto ni fuente de datos pública identificable.",
+         observaciones="Consulta manual: no lista eventos concretos que se puedan leer de forma automatizada."),
+    dict(nombre="ProInnóvate – Concursos (campañas de gob.pe)", inst="proinnovate", zona=None,
+         url_principal="https://www.gob.pe/institucion/proinnovate",
+         url_listado="https://www.gob.pe/institucion/proinnovate/campa%C3%B1as",
+         tipo="bono", formato="html", frecuencia=48, prioridad=3,
+         config={"patron_enlace": r"/institucion/proinnovate/campa(%C3%B1|ñ)as/\d+", "patron_id": CAMPANAS,
+                 "palabras_clave": ["concurso", "convocatoria", "fondo", "financiamiento", "iniciativa"],
+                 "excluir": ["resultados", "ganadores"]},
+         condiciones=ROBOTS_GOBPE,
+         observaciones="Concursos de financiamiento para empresas y emprendedores (tipo «beneficio»): siempre revisión humana."),
+    dict(nombre="Ministerio de Cultura UE 008 – CAS del año (tabla)", inst="ue008", zona=None,
+         url_principal="https://www.proyectoscultura.gob.pe/cas.php",
+         url_listado="https://www.proyectoscultura.gob.pe/controladores/cas.controlador.php?operacion=listabasica&anio={anio}",
+         tipo="empleo", formato="html", frecuencia=24, prioridad=2,
+         config={"modo": "tabla", "base_enlaces": "https://www.proyectoscultura.gob.pe/",
+                 "excluir_fila_enlace": r"EVAL|FINALIZADO|RESULT",
+                 "enlace_extra": "https://plataformamincu.cultura.gob.pe/POST_CAST/User/Login",
+                 "texto_enlace_extra": "Postulación en línea"},
+         condiciones="cas.php carga su tabla desde controladores/cas.controlador.php (misma web, robots.txt permite). "
+                     "{anio} se reemplaza por el año en curso.",
+         observaciones="Se omiten las filas con evaluaciones o finalizadas. Cada fila apunta al PDF del perfil."),
+]

@@ -87,7 +87,7 @@ def evaluar(tipo, borrador, datos, enlaces_verificados, problemas_fechas, sospec
                 check(f"Dato obligatorio «{c['etiqueta']}»", borrador["detalle"].get(c["nombre"]) not in (None, ""))
     if info["oportunidad"]:
         check("Fecha límite encontrada en la fuente", borrador["fecha_limite"] is not None)
-    principal = [e for e in enlaces_verificados if e[0] == info["cta"] or e[0] == "convocatoria"]
+    principal = [e for e in enlaces_verificados if e[0] in (info["cta"], "convocatoria", "oficial")]
     check("La página oficial de la convocatoria responde", any(e[3] for e in principal), "bloqueo")
     if info["cta"]:
         check(f"Botón principal «{info['cta']}» verificado",
@@ -102,6 +102,9 @@ def evaluar(tipo, borrador, datos, enlaces_verificados, problemas_fechas, sospec
     check("Es una oportunidad o información útil (no testimonio ni nota)", relev >= 30, "bloqueo")
     largo = len(borrador["contenido"]) + sum(len(str(v)) for v in borrador["detalle"].values())
     check("Información suficiente (no es una página vacía)", largo >= 250)
+    if info["oportunidad"] and borrador["fecha_limite"] is None and largo < 250:
+        # Sin fecha de cierre y casi sin datos: no hay evidencia suficiente para una ficha útil
+        check("Hay evidencia suficiente (fecha de cierre o información sustancial)", False, "bloqueo")
     for gravedad, msg in problemas_fechas:
         check(msg, False, "bloqueo" if gravedad == "bloqueo" else "revision")
 

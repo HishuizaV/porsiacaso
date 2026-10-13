@@ -50,6 +50,13 @@ def similitud(a, b):
     return len(sa & sb) / len(sa | sb)
 
 
+def similitud_titulos(a, b):
+    """Jaccard de palabras significativas (sin años ni números)."""
+    pa = {p for p in normalizar(a or "").split() if len(p) > 2 and not p.isdigit()}
+    pb = {p for p in normalizar(b or "").split() if len(p) > 2 and not p.isdigit()}
+    return len(pa & pb) / len(pa | pb) if pa and pb else 0.0
+
+
 def buscar_duplicado(h, candidatos):
     """Devuelve (hallazgo_existente, motivo) o (None, None).
 
@@ -63,14 +70,19 @@ def buscar_duplicado(h, candidatos):
             return otro, "misma URL"
         if h.id_externo and otro.fuente_id == h.fuente_id and otro.id_externo == h.id_externo:
             return otro, "mismo identificador de la fuente"
-        if h.huella_documento and otro.huella_documento == h.huella_documento:
-            return otro, "mismo documento oficial (PDF idéntico)"
+        if h.huella_documento and otro.huella_documento == h.huella_documento and \
+                similitud_titulos(h.titulo, otro.titulo) >= 0.5:
+            return otro, "mismo documento oficial (PDF idéntico) y título equivalente"
         if h.codigo_convocatoria and otro.codigo_convocatoria == h.codigo_convocatoria and \
                 otro.fuente and h.fuente and otro.fuente.institucion_id == h.fuente.institucion_id:
             return otro, "misma institución y número de convocatoria"
         if h.huella and otro.huella == h.huella:
             return otro, "mismo contenido"
     for otro in candidatos:
+        if otro.fuente_id == h.fuente_id and h.id_externo and otro.id_externo and h.id_externo != otro.id_externo:
+            continue   # misma fuente, identificadores distintos: procesos distintos (aunque usen la misma plantilla)
+        if h.codigo_convocatoria and otro.codigo_convocatoria and h.codigo_convocatoria != otro.codigo_convocatoria:
+            continue
         if otro.id != h.id and otro.texto and h.texto and otro.tipo_detectado == h.tipo_detectado:
             if similitud(otro.texto, h.texto) >= UMBRAL_SIMILITUD:
                 return otro, "contenido casi idéntico"

@@ -50,7 +50,8 @@ def detectar_tipo(titulo, texto, tipo_fuente, vacantes=None):
 
 
 DOCUMENTO_ADMINISTRATIVO = r"^(acta|circular|convenio|fe de erratas|comunicado|resultados?|lista de|resolucion|" \
-                           r"informe|oficio|memorando|ordenanza|acuerdo de concejo)\b"
+                           r"informe|oficio|memorando|ordenanza|acuerdo de concejo|suspension|cancelacion|sindicatos|contratos tiempo parcial|" \
+                           r"servir con integridad)\b"
 
 
 def parece_no_oportunidad(titulo, resumen=""):

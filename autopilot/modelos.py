@@ -89,6 +89,7 @@ class Hallazgo(db.Model):
     datos_json = db.Column(db.Text)         # campos extraídos {campo: {valor, estado, ...}}
     advertencias_json = db.Column(db.Text)
     enlaces_json = db.Column(db.Text)       # enlaces oficiales detectados
+    extra_json = db.Column(db.Text)         # datos del listado (enlaces del bloque o fila, sede, plazas…)
     articulo_id = db.Column(db.Integer, db.ForeignKey("articulo.id"), index=True)
     articulo = db.relationship("Articulo")
     duplicado_de_id = db.Column(db.Integer, db.ForeignKey("hallazgo.id"))
@@ -109,6 +110,10 @@ class Hallazgo(db.Model):
     @property
     def enlaces(self):
         return _json(self.enlaces_json, [])
+
+    @property
+    def extra(self):
+        return _json(self.extra_json, {})
 
 
 class Evidencia(db.Model):

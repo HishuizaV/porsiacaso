@@ -44,3 +44,9 @@ listo para cuando haya una.
 Cada fuente tiene su frecuencia (24–72 h). El robot se identifica como `PorSiAcasoBot/1.0`, espera 2 segundos
 entre peticiones al mismo sitio, respeta `robots.txt`, limita el tamaño de las descargas y reintenta como
 máximo 2 veces con espera creciente. En la prueba real, 37 elementos necesitaron unas 145 peticiones en 3,5 minutos.
+
+## Segunda tanda (13/10/2026)
+
+Se agregaron 9 fuentes pedidas por el propietario (ENAP ya existía). Resultados, métodos de acceso y
+adaptadores nuevos (JSON con plantillas, procesos por bloques, tabla y página única) en
+`docs/AUTOPILOT_RESULTADOS_REALES.md`. MTPE – Eventos Empleos Perú queda como **manual**.

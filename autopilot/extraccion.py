@@ -28,6 +28,9 @@ RE_CODIGO = re.compile(r"\b((?:CAS|PROCESO\s+CAS|CONVOCATORIA|CONCURSO|PR[AÁ]CT
 RE_VACANTES = re.compile(r"\b(\d{1,4})\s*(?:\([^)]{1,25}\)\s*,?\s*)?(?:plazas|vacantes|puestos)\b", re.I)
 RE_VACANTES_ETIQUETA = re.compile(r"(?:n[°º.]?\s*de\s*)?vacantes\s*:?\s*(\d{1,4})\b", re.I)
 RE_SUELDO = re.compile(r"S/\.?\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)")
+RE_DURACION_CONTRATO = re.compile(
+    r"retorno del titular|duracion del contrato|vigencia del contrato|plazo del contrato|prorroga|"
+    r"periodo de contratacion|contrato hasta|renovable|suplencia hasta|fecha de termino")
 CLAVES_LIMITE = ("fecha limite", "fecha de cierre", "cierre de", "hasta el", "plazo", "inscripciones hasta",
                  "postulacion hasta", "vence", "ultimo dia", "inscripcion hasta", "postulaciones hasta",
                  "registro de postulantes")
@@ -150,6 +153,9 @@ def fecha_limite(texto, origen, hoy):
     for clave in CLAVES_LIMITE:
         for m in re.finditer(re.escape(clave), base):
             ventana = texto[m.start(): m.start() + 160]
+            contexto = normalizar(texto[max(0, m.start() - 120): m.start() + 200])
+            if RE_DURACION_CONTRATO.search(contexto):
+                continue   # p. ej. «Hasta el 31 de diciembre o hasta el retorno del titular»: es la duración
             fs = fechas_en(ventana, anio)
             if not fs:
                 continue
@@ -224,8 +230,10 @@ def valor_etiquetado(texto, etiquetas):
 
 
 # ---------- Enlaces ----------
+RE_RESULTADOS = re.compile(r"resultado|seleccionad|aptos|becarios|ganador|no[ _-]+aceptantes|relaci[oó]n[ _-]+de",
+                           re.I)
 REGLAS_ENLACE = [
-    ("postular", re.compile(r"postula|inscr[ií]b|inscripci[oó]n|reg[ií]strate|formulario de postulaci", re.I)),
+    ("postular", re.compile(r"postula(?!ntes)|inscr[ií]b|inscripci[oó]n|reg[ií]strate|formulario de postulaci", re.I)),
     ("bases", re.compile(r"\bbases?\b", re.I)),
     ("anexo", re.compile(r"anexo|formato", re.I)),
 ]
@@ -239,6 +247,8 @@ def clasificar_enlaces(enlaces, url_pagina, tipo_pagina="convocatoria"):
             continue
         ya = {t for t, _e, _u in salida}
         es_pdf = bool(re.search(r"\.pdf(\?|$)", url, re.I))
+        if RE_RESULTADOS.search(texto + " " + url.rsplit("/", 1)[-1]):
+            continue   # listas de resultados, aptos o becarios: no son botones para postular
         ruta = url.rsplit("/", 1)[-1].lower()
         for tipo, patron in REGLAS_ENLACE:
             if patron.search(texto) or (es_pdf and tipo != "postular" and patron.search(ruta)):
@@ -248,14 +258,18 @@ def clasificar_enlaces(enlaces, url_pagina, tipo_pagina="convocatoria"):
                 etiqueta = None
                 if tipo == "anexo":
                     n = sum(1 for x in salida if x[0] == "anexo") + 1
-                    etiqueta = f"Descargar anexo {n}"
+                    nombre = re.sub(r"\s+", " ", texto or "").strip()
+                    # Se usa el nombre real («Anexo 05», «Formato N° 02») si la fuente lo da
+                    if 4 <= len(nombre) <= 40 and not re.fullmatch(r"(?i)descargar|ver|aqu[ií]|pdf", nombre):
+                        etiqueta = f"{'Descargar' if es_pdf else 'Ver'} {nombre[0].lower() + nombre[1:]}"
+                    else:
+                        etiqueta = f"{'Descargar' if es_pdf else 'Ver'} anexo {n}"
                 salida.append((tipo, etiqueta, url))
                 vistos.add(url)
                 break
     # el botón de la página oficial consultada: «Ver convocatoria» o «Ir a la página oficial»
     salida.insert(0, (tipo_pagina, None, url_pagina))
-    return [(t, (e if t != "anexo" or re.search(r"\.pdf(\?|$)", u, re.I) else "Ver formatos y documentos"), u)
-            for t, e, u in salida]
+    return salida
 
 
 def pdfs_de(enlaces):
@@ -266,9 +280,10 @@ def pdfs_de(enlaces):
 def extraer(tipo, titulo, texto, origen, hoy, paginas_pdf=None, url_pdf=None):
     """Devuelve {campo: Dato}. Busca primero en la página y luego en el PDF de bases."""
     fuentes = [((titulo + "\n" + texto) if titulo else texto, origen, None)]
-    for pag, t in (paginas_pdf or []):
+    for item in (paginas_pdf or []):
+        pag, t = item[0], item[1]
         if t.strip():
-            fuentes.append((t, url_pdf, pag))
+            fuentes.append((t, item[2] if len(item) > 2 else url_pdf, pag))
     datos = {}
 
     def primero(func):
@@ -313,6 +328,11 @@ def extraer(tipo, titulo, texto, origen, hoy, paginas_pdf=None, url_pdf=None):
         datos["temario"] = primero(lambda t, o: _lista(t, o, ["contenidos", "temario", "contenido"]))
         datos["requisitos"] = primero(lambda t, o: _lista(t, o, ["requisitos"]))
     elif tipo in ("tramite", "bono"):
+        if tipo == "bono":
+            publico, frag = valor_etiquetado(texto, ["dirigido a", "dirigida a", "publico objetivo", "público objetivo",
+                                                     "quienes pueden postular", "¿quiénes pueden postular\\?",
+                                                     "beneficiarios", "participantes"])
+            datos["publico"] = confirmado(publico, frag, origen) if publico else Dato()
         datos["requisitos"] = primero(lambda t, o: _lista(t, o, ["requisitos"]))
         datos["pasos"] = primero(lambda t, o: _lista(t, o, ["pasos", "procedimiento", "como hacerlo", "como realizar"]))
         datos["costo_texto"] = primero(lambda t, o: _regex(re.compile(r"((?:costo|tasa|pago)[^\n]{0,15}S/\.?\s*[\d.,]+)", re.I), t, o))
@@ -356,6 +376,17 @@ def _vacantes(texto, origen):
     return confirmado(n, _contexto(texto, m.start(), m.end(), 60), origen)
 
 
+def leer_monto(bruto):
+    """Número peruano con separadores mixtos. Si termina en 1–2 dígitos tras el último separador,
+    esos son decimales; los demás separadores son de miles. Devuelve None si no es un número."""
+    partes = re.split(r"[.,]", bruto.strip())
+    if not all(p.isdigit() for p in partes if p) or not partes[0]:
+        return None
+    if len(partes) > 1 and len(partes[-1]) in (1, 2):
+        return float("".join(partes[:-1]) + "." + partes[-1])
+    return float("".join(partes))
+
+
 def _sueldo(texto, origen, tipo):
     encontrados = []
     for m in RE_SUELDO.finditer(texto):
@@ -363,11 +394,9 @@ def _sueldo(texto, origen, tipo):
         if not any(k in ctx for k in ("remuneracion", "sueldo", "honorario", "retribucion", "contraprestacion",
                                       "salario", "mensual")):
             continue
-        bruto = m.group(1)
-        if re.fullmatch(r"\d{1,3}([.,]\d{3})+", bruto):
-            valor = int(re.sub(r"[.,]", "", bruto))
-        else:
-            valor = float(bruto.replace(",", "."))
+        valor = leer_monto(m.group(1))
+        if valor is None:
+            continue
         if 300 <= valor <= 100000:
             encontrados.append((valor, m))
     if not encontrados:
@@ -442,8 +471,13 @@ def _cargo(titulo, texto, origen, tipo):
                                        "nombre del puesto"])
     if v:
         return confirmado(v[:200], frag, origen)
+    m = re.search(r"Contrataci[oó]n de (?:un|una|uno)\s+(?:\(\d+\)\s*)?(.{3,120}?)\s+(?:para|en)\s+(?:la|el|los|las)\b",
+                  texto, re.I)
+    if m:
+        return confirmado(m.group(1).strip(), texto[max(0, m.start()):m.end() + 40], origen)
     if tipo == "empleo":
-        m = re.search(r"(?:convocatoria|proceso)[^:–-]{0,60}[:–-]\s*(.{5,120})$", titulo or "", re.I)
+        m = re.search(r"\s[–—]\s(.{5,120})$", titulo or "") or \
+            re.search(r"(?:convocatoria|proceso)[^:–]{0,60}:\s*(.{5,120})$", titulo or "", re.I)
         if m:
             return confirmado(m.group(1).strip(), titulo, origen)
     return Dato()

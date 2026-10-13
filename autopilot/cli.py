@@ -126,6 +126,25 @@ def registrar(app):
             click.echo(f"- {it.titulo[:90]}\n  {it.url}")
         click.echo(f"{len(items)} elemento(s).")
 
+    @grupo.command("reevaluar")
+    @click.option("--descartados-de", "descartados_de", multiple=True, type=int,
+                  help="ID de fuente cuyos descartados se vuelven a procesar (tras corregir una regla).")
+    def reevaluar(descartados_de):
+        """Rehace las fichas del Autopilot que nadie revisó todavía, con las reglas actuales.
+        Retira las que ya no pasan (nunca se publicaron). Haz `flask respaldo` antes."""
+        from autopilot.calidad import configuracion
+        from autopilot.flujo import reevaluar_borradores
+        from autopilot.red import Descargador
+        d = Descargador()
+        try:
+            r = reevaluar_borradores(d, configuracion(), descartados_de)
+        finally:
+            d.cerrar()
+        click.echo(f"Rehechas: {len(r['rehechas'])} · retiradas: {len(r['retiradas'])} · "
+                   f"duplicados recalculados: {r['reabiertas']} · omitidas (ya tocadas por personas): {r['omitidas']}")
+        for t, m in r["retiradas"]:
+            click.echo(f"  - retirada: {t[:80]} | {(m or '')[-160:]}")
+
     @grupo.command("medir-ia")
     @click.option("--modelo", default=None)
     def medir_ia(modelo):
