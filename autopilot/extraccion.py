@@ -31,7 +31,8 @@ RE_SUELDO = re.compile(r"S/\.?\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.
 CLAVES_LIMITE = ("fecha limite", "fecha de cierre", "cierre de", "hasta el", "plazo", "inscripciones hasta",
                  "postulacion hasta", "vence", "ultimo dia", "inscripcion hasta", "postulaciones hasta",
                  "registro de postulantes")
-ENCABEZADOS = re.compile(r"^(requisitos|perfil|funciones|beneficios|cobertura|cronograma|contenidos?|"
+ENCABEZADOS = re.compile(r"^(requisitos|perfil|funciones|beneficios|cobertura|cronograma|contenidos?|experiencia|"
+                         r"formacion|competencias|conocimientos|metodologia|horario|"
                          r"dirigido a|documentos|pasos|como postular|procedimiento|bases)\b", re.I)
 
 
@@ -173,6 +174,21 @@ def normalizar_conservando(texto):
     return "".join(salida)
 
 
+def _es_limite_de_seccion(s):
+    """¿Empieza aquí otra sección? (encabezado conocido, etiqueta «Algo:», título en MAYÚSCULAS,
+    fechas de inscripción o enlaces de descarga)."""
+    n = normalizar(s)
+    if ENCABEZADOS.match(n) and len(s) < 80:
+        return True
+    if re.match(r"^[^\s:][^:]{1,40}:\s*\S?", s) and len(s.split(":", 1)[0].split()) <= 5:
+        return True   # «Experiencia: …», «Remuneración mensual: …»
+    letras = [c for c in s if c.isalpha()]
+    if len(letras) >= 12 and sum(c.isupper() for c in letras) / len(letras) > 0.85:
+        return True   # «BASE DE LA CONVOCATORIA CAS 003-2026»
+    return bool(re.match(r"^(inscripciones?|postulaciones?|registro de postulantes|cierre|descargar|"
+                         r"cronograma|remuneracion|vacantes|modalidad|lugar)\b", n))
+
+
 def seccion(texto, nombres, max_items=15):
     """Viñetas o líneas bajo un encabezado (p. ej. «Requisitos»)."""
     lineas = texto.split("\n")
@@ -187,7 +203,7 @@ def seccion(texto, nombres, max_items=15):
                 s = sig.strip(" ●•·-–*\t")
                 if not s:
                     continue
-                if ENCABEZADOS.match(normalizar(s)) and len(s) < 60 and items:
+                if items and _es_limite_de_seccion(s):
                     break
                 if len(s) > 300:
                     break

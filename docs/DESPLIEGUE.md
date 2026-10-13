@@ -54,3 +54,12 @@ Ver `docs/CHECKLIST_ADSENSE.md`.
 | Automatizado | Manual |
 |---|---|
 | Migraciones, respaldos, sitemap, robots, canonicals, JSON-LD, vencimiento de convocatorias, ads.txt y etiquetas de verificación (desde el panel) | Contratar hosting y dominio, DNS, HTTPS en VPS, verificación en Search Console, solicitud y aprobación de AdSense, redactar contenido real y datos legales |
+
+## 7. Autopilot y publicaciones programadas en el servidor
+
+- Las publicaciones programadas se muestran a su hora **por consulta** (`fecha_publicacion <= ahora`): el servidor no
+  necesita tareas programadas ni procesos extra. No pongas una caché delante con tiempos largos (máx. unos minutos).
+- Define `AUTOPILOT_TOKEN` (≥32 caracteres) en el servidor y en la laptop, y `AUTOPILOT_DESTINO` en la laptop.
+- En el servidor deja `AUTOPILOT_LANZAR_DESDE_PANEL=0`: la jornada corre en la laptop.
+- El servidor aplica su **propia** política: con modo A, todo lo recibido queda en su bandeja.
+- `flask db upgrade` en el servidor crea las tablas del Autopilot (migración `732c8c030a5e`, aditiva).

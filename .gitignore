@@ -10,3 +10,4 @@ static/uploads/
 .env
 .vscode/respaldos/
 .pytest_cache/
+logs/

@@ -342,3 +342,12 @@ def test_un_solo_boton_por_tipo():
     cls = extraccion.clasificar_enlaces(enlaces, "https://a.gob.pe/pagina")
     tipos = [t for t, _e, _u in cls]
     assert tipos.count("postular") == 1 and tipos.count("anexo") == 4
+
+
+def test_secciones_no_se_mezclan():
+    texto = ("Formación académica:\nBachiller en Administración\nExperiencia:\nUn año en el sector público\n"
+             "Funciones:\nRegistrar documentos\nAtender al público\nInscripciones hasta el 23 de octubre de 2026.\n"
+             "Requisitos:\nSer peruano\nBASE DE LA CONVOCATORIA CAS 003-2026 PDF 1 MB")
+    assert extraccion.seccion(texto, ["formacion"])[0] == ["Bachiller en Administración"]
+    assert extraccion.seccion(texto, ["funciones"])[0] == ["Registrar documentos", "Atender al público"]
+    assert extraccion.seccion(texto, ["requisitos"])[0] == ["Ser peruano"]

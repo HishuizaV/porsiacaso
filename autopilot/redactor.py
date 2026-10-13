@@ -97,6 +97,20 @@ def contenido(tipo, datos, inst, enlaces):
     fl = _v(datos, "fecha_limite")
     tipos_enlace = {t for t, _e, _u in enlaces}
     if tipo in ("empleo", "convocatoria"):
+        # Párrafo inicial solo con datos confirmados (sin adjetivos ni promesas)
+        nombre = inst.nombre if inst else "La entidad"
+        cargo, vac, mod = _v(datos, "cargo"), _v(datos, "vacantes"), _v(datos, "modalidad")
+        lugar = _v(datos, "region")
+        frase = f"{nombre} busca cubrir {_plazas(vac) if vac else 'plazas'}"
+        if cargo and tipo == "empleo":
+            frase += f" para el puesto de {cargo}"
+        if lugar:
+            frase += f" en {lugar}"
+        if mod:
+            frase += f", en modalidad {dict(presencial='presencial', remoto='remota', hibrido='híbrida').get(mod, mod)}"
+        partes.append(f"<p>{escape(frase)}.</p>")
+        if fl:
+            partes.append(f"<p>El plazo para postular vence el {escape(fecha_larga(fl))}.</p>")
         req = _v(datos, "requisitos")
         if req and tipo == "convocatoria":
             partes.append("<h2>Requisitos generales</h2>" + _lista_html(req))

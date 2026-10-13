@@ -75,3 +75,19 @@ Después de cambiar `models.py`: `flask db migrate -m "descripcion"`, revisar el
 | `seguridad.py` | CSRF y límites de peticiones |
 
 Más documentación en `docs/`: auditoría, plan, estado del proyecto, despliegue y checklist de AdSense.
+
+## PorSiAcaso Autopilot
+
+Trabajador editorial por lotes: investiga fuentes oficiales autorizadas, extrae datos con evidencia,
+verifica enlaces y fechas y deja fichas en la **Bandeja de revisión**. Jornadas de máximo 120 minutos que se
+cierran solas; no necesita Claude Code ni servicios de pago.
+
+```powershell
+flask autopilot cargar-fuentes          # fuentes investigadas, en pausa (actívalas en el panel)
+flask autopilot jornada --minutos 120   # una jornada (o el botón del panel)
+flask autopilot estado | pausar | continuar | detener
+powershell -ExecutionPolicy Bypass -File .\autopilot_programar.ps1 -Hora 06:30   # jornada diaria automática
+```
+
+Documentación: `docs/AUTOPILOT_MANUAL.md` (uso), `AUTOPILOT_ARQUITECTURA.md`, `AUTOPILOT_FUENTES.md`,
+`AUTOPILOT_SEGURIDAD.md`, `AUTOPILOT_PRUEBAS.md`, `AUTOPILOT_ESTADO_FINAL.md`.
